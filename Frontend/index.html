@@ -1,0 +1,2566 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ResearchAI – Autonomous GenAI Research Navigator</title>
+  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50:  '#f0f9ff',
+              100: '#e0f2fe',
+              200: '#bae6fd',
+              300: '#7dd3fc',
+              400: '#38bdf8',
+              500: '#0ea5e9',
+              600: '#0284c7',
+              700: '#0369a1',
+              800: '#075985',
+              900: '#0c4a6e',
+            },
+            surface: {
+              50:  '#f8fafc',
+              100: '#f1f5f9',
+              200: '#e2e8f0',
+              300: '#cbd5e1',
+              400: '#94a3b8',
+              500: '#64748b',
+              600: '#475569',
+              700: '#334155',
+              800: '#1e293b',
+              850: '#172033',
+              900: '#0f172a',
+              950: '#0a0f1e',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    html, body, #root { height: 100%; margin: 0; padding: 0; }
+    body { background: #0a0f1e; font-family: 'Inter', sans-serif; color: #e2e8f0; transition: background 0.3s, color 0.3s; }
+
+    /* ── Light mode overrides ── */
+    body.light { background: #f8fafc; color: #0f172a; }
+    body.light .bg-surface-950 { background: #f1f5f9 !important; }
+    body.light .bg-surface-900\/80, body.light .bg-surface-900\/90, body.light .bg-surface-900\/60 { background: rgba(248,250,252,0.95) !important; }
+    body.light .bg-surface-800\/60, body.light .bg-surface-800\/40, body.light .bg-surface-800\/30, body.light .bg-surface-800\/80 { background: rgba(226,232,240,0.7) !important; }
+    body.light .bg-surface-700\/60, body.light .bg-surface-700\/50, body.light .bg-surface-700\/40, body.light .bg-surface-700\/30 { background: rgba(203,213,225,0.5) !important; }
+    body.light .border-surface-700\/50, body.light .border-surface-700\/40 { border-color: rgba(148,163,184,0.4) !important; }
+    body.light .text-surface-100, body.light .text-surface-200, body.light .text-white { color: #0f172a !important; }
+    body.light .text-surface-300 { color: #334155 !important; }
+    body.light .text-surface-400 { color: #475569 !important; }
+    body.light .text-surface-500 { color: #64748b !important; }
+    body.light .text-surface-600 { color: #94a3b8 !important; }
+    body.light nav { background: rgba(248,250,252,0.97) !important; border-color: rgba(148,163,184,0.3) !important; }
+    body.light aside { background: rgba(241,245,249,0.97) !important; border-color: rgba(148,163,184,0.3) !important; }
+    body.light select, body.light input { background: rgba(226,232,240,0.8) !important; color: #0f172a !important; }
+    body.light .gradient-text { background: linear-gradient(135deg, #0284c7 0%, #6d28d9 50%, #7c3aed 100%); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; }
+
+    .gradient-text {
+      background: linear-gradient(135deg, #38bdf8 0%, #818cf8 50%, #c084fc 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+
+    .gradient-border {
+      position: relative;
+      border-radius: 12px;
+    }
+    .gradient-border::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 12px;
+      padding: 1px;
+      background: linear-gradient(135deg, #38bdf8, #818cf8, #c084fc);
+      -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      -webkit-mask-composite: xor;
+      mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+      mask-composite: exclude;
+      pointer-events: none;
+    }
+
+    @keyframes shimmer {
+      0%   { background-position: -200% center; }
+      100% { background-position:  200% center; }
+    }
+    .progress-shimmer {
+      background: linear-gradient(90deg, #0ea5e9 0%, #818cf8 40%, #c084fc 60%, #0ea5e9 100%);
+      background-size: 200% auto;
+      animation: shimmer 2s linear infinite;
+    }
+
+    @keyframes slideIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to   { opacity: 1; transform: translateY(0); }
+    }
+    .slide-in { animation: slideIn 0.35s ease forwards; }
+
+    @keyframes typingDot {
+      0%, 80%, 100% { transform: scale(0.6); opacity: 0.4; }
+      40%            { transform: scale(1);   opacity: 1;   }
+    }
+    .typing-dot { animation: typingDot 1.2s infinite ease-in-out; }
+    .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+    .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+
+    @keyframes pulse-ring {
+      0%   { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14,165,233,0.5); }
+      70%  { transform: scale(1);    box-shadow: 0 0 0 8px rgba(14,165,233,0); }
+      100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(14,165,233,0); }
+    }
+    .pulse-ring { animation: pulse-ring 1.5s infinite; }
+
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #0f172a; }
+    ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    ::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+    /* Print / PDF styles */
+    @media print {
+      body { background: white !important; color: black !important; }
+      #print-area { display: block !important; }
+      nav, aside, .no-print { display: none !important; }
+      #root > div { display: block !important; }
+      .print-page { padding: 2cm; font-family: Georgia, serif; }
+      .print-page h1 { font-size: 22pt; margin-bottom: 8pt; }
+      .print-page h2 { font-size: 16pt; margin-top: 18pt; margin-bottom: 6pt; border-bottom: 1px solid #ccc; padding-bottom: 4pt; }
+      .print-page h3 { font-size: 13pt; margin-top: 12pt; }
+      .print-page p, .print-page li { font-size: 11pt; line-height: 1.6; }
+      .print-page .source-item { margin-bottom: 6pt; font-size: 10pt; }
+      .print-page .meta { color: #555; font-size: 9pt; }
+    }
+  </style>
+</head>
+<body>
+<div id="root"></div>
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+/* ─────────────────────────────────────────────
+   SVG ICON SYSTEM
+───────────────────────────────────────────── */
+const icons = {
+  Search: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+  ),
+  Brain: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96-.46 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 1.98-3A2.5 2.5 0 0 1 9.5 2Z"/>
+      <path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96-.46 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-1.98-3A2.5 2.5 0 0 0 14.5 2Z"/>
+    </svg>
+  ),
+  Zap: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+    </svg>
+  ),
+  Globe: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <line x1="2" y1="12" x2="22" y2="12"/>
+      <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+    </svg>
+  ),
+  FileText: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+      <polyline points="14 2 14 8 20 8"/>
+      <line x1="16" y1="13" x2="8" y2="13"/>
+      <line x1="16" y1="17" x2="8" y2="17"/>
+      <polyline points="10 9 9 9 8 9"/>
+    </svg>
+  ),
+  Check: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="20 6 9 17 4 12"/>
+    </svg>
+  ),
+  Copy: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="9" y="9" width="13" height="13" rx="2" ry="2"/>
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/>
+    </svg>
+  ),
+  Sparkles: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M12 3l1.88 5.76a1 1 0 0 0 .95.69h6.06l-4.9 3.56a1 1 0 0 0-.36 1.12L17.5 20l-4.9-3.56a1 1 0 0 0-1.18 0L6.5 20l1.87-5.87a1 1 0 0 0-.36-1.12L3.11 9.45h6.06a1 1 0 0 0 .95-.69L12 3z"/>
+    </svg>
+  ),
+  Link: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+    </svg>
+  ),
+  Clock: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/>
+      <polyline points="12 6 12 12 16 14"/>
+    </svg>
+  ),
+  Trash: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="3 6 5 6 21 6"/>
+      <path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/>
+      <path d="M10 11v6"/><path d="M14 11v6"/>
+      <path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/>
+    </svg>
+  ),
+  Plus: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>
+    </svg>
+  ),
+  Menu: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="3" y1="6" x2="21" y2="6"/>
+      <line x1="3" y1="12" x2="21" y2="12"/>
+      <line x1="3" y1="18" x2="21" y2="18"/>
+    </svg>
+  ),
+  Alert: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polygon points="10.29 3.86 1.82 18 22.18 18"/>
+      <line x1="12" y1="9" x2="12" y2="13"/>
+      <line x1="12" y1="17" x2="12.01" y2="17"/>
+    </svg>
+  ),
+  Download: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+      <polyline points="7 10 12 15 17 10"/>
+      <line x1="12" y1="15" x2="12" y2="3"/>
+    </svg>
+  ),
+  Settings: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+    </svg>
+  ),
+  X: (p) => (
+    <svg {...p} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  ),
+};
+
+const Icon = ({ name, className = "w-4 h-4" }) => {
+  const Comp = icons[name];
+  return Comp ? <Comp className={className} /> : null;
+};
+
+/* ─────────────────────────────────────────────
+   TYPING DOTS
+───────────────────────────────────────────── */
+const TypingDots = () => (
+  <span className="inline-flex items-center gap-1 ml-1">
+    {[0,1,2].map(i => (
+      <span key={i} className="typing-dot w-1.5 h-1.5 rounded-full bg-brand-400 inline-block" />
+    ))}
+  </span>
+);
+
+/* ─────────────────────────────────────────────
+   AGENT STEP ROW
+───────────────────────────────────────────── */
+const stepIcons = ['Brain','Search','Globe','FileText','Brain','Zap','Sparkles','FileText'];
+
+const AgentStepRow = ({ step, index, isActive, isDone }) => {
+  const iconName = stepIcons[index] || 'Zap';
+  return (
+    <div className={`flex items-start gap-3 p-3 rounded-lg transition-all duration-300 ${
+      isActive ? 'bg-brand-900/40 border border-brand-700/50' :
+      isDone   ? 'bg-surface-800/30' : 'opacity-40'
+    }`}>
+      <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${
+        isDone   ? 'bg-emerald-500/20 text-emerald-400' :
+        isActive ? 'bg-brand-500/20 text-brand-400 pulse-ring' :
+                   'bg-surface-700/50 text-surface-500'
+      }`}>
+        {isDone
+          ? <Icon name="Check" className="w-4 h-4" />
+          : isActive
+            ? <Icon name={iconName} className="w-4 h-4" />
+            : <span className="text-xs font-mono font-bold">{index + 1}</span>
+        }
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center gap-2">
+          <span className={`text-sm font-medium ${
+            isDone ? 'text-surface-300' : isActive ? 'text-white' : 'text-surface-500'
+          }`}>{step.label}</span>
+          {isActive && <TypingDots />}
+        </div>
+        {(isActive || isDone) && (
+          <p className="text-xs text-surface-400 mt-0.5">{step.sub}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   SOURCE CARD
+───────────────────────────────────────────── */
+const SourceCard = ({ source, index }) => {
+  const isGithub = source.type === 'repo' || source.venue === 'GitHub';
+  const isArxiv  = source.venue === 'arXiv' || (source.url && source.url.includes('arxiv'));
+
+  // Build the best clickable URL
+  const href = source.url && source.url.startsWith('http')
+    ? source.url
+    : isArxiv && source.url
+      ? `https://arxiv.org/abs/${source.url.split('/').pop()}`
+      : isGithub && source.id
+        ? `https://github.com/${source.id}`
+        : source.url || '#';
+
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="slide-in block bg-surface-800/60 border border-surface-700/50 rounded-xl p-4 hover:border-brand-600/60 hover:bg-surface-800/90 transition-all duration-200 group"
+      style={{ animationDelay: `${index * 80}ms` }}
+    >
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="flex items-center gap-2">
+          <span className={`flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs ${
+            isGithub ? 'bg-violet-500/20 text-violet-400' : 'bg-brand-500/20 text-brand-400'
+          }`}>
+            <Icon name={isGithub ? 'Globe' : 'FileText'} className="w-3.5 h-3.5" />
+          </span>
+          <span className="text-xs text-surface-400 font-mono">{source.venue} · {source.year}</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-full ${
+            source.relevance >= 95 ? 'bg-emerald-500/20 text-emerald-400' :
+            source.relevance >= 85 ? 'bg-brand-500/20 text-brand-400' :
+                                      'bg-amber-500/20 text-amber-400'
+          }`}>{source.relevance}%</span>
+          {/* External link indicator */}
+          <svg className="w-3 h-3 text-surface-600 group-hover:text-brand-400 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+            <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+            <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+          </svg>
+        </div>
+      </div>
+      <h4 className="text-sm font-semibold text-surface-100 group-hover:text-white leading-snug mb-1 transition-colors">{source.title}</h4>
+      <p className="text-xs text-surface-400 mb-3">{source.authors}</p>
+      <div className="w-full bg-surface-700/50 rounded-full h-1">
+        <div
+          className="h-1 rounded-full transition-all duration-700 progress-shimmer"
+          style={{ width: `${source.relevance}%` }}
+        />
+      </div>
+    </a>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   REPORT RENDERER  (with TOC anchors)
+───────────────────────────────────────────── */
+const ReportRenderer = ({ text, onCopy, copied }) => {
+  const lines = text.split('\n');
+  const rendered = [];
+  let key = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.startsWith('## ')) {
+      const heading = line.slice(3);
+      const id = 'h-' + heading.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      rendered.push(
+        <h2 id={id} key={key++} className="text-xl font-bold text-white mt-6 mb-3 gradient-text scroll-mt-4">
+          {heading}
+        </h2>
+      );
+    } else if (line.startsWith('### ')) {
+      const heading = line.slice(4);
+      const id = 'h-' + heading.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+      rendered.push(
+        <h3 id={id} key={key++} className="text-base font-semibold text-brand-300 mt-4 mb-2 scroll-mt-4">
+          {heading}
+        </h3>
+      );
+    } else if (line.startsWith('- ')) {
+      rendered.push(
+        <li key={key++} className="text-sm text-surface-300 leading-relaxed ml-4 list-disc">
+          {line.slice(2)}
+        </li>
+      );
+    } else if (line.trim() === '') {
+      rendered.push(<div key={key++} className="h-2" />);
+    } else {
+      rendered.push(
+        <p key={key++} className="text-sm text-surface-300 leading-relaxed">
+          {line}
+        </p>
+      );
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        onClick={onCopy}
+        className="absolute top-0 right-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-surface-700/60 hover:bg-surface-600/60 text-surface-300 hover:text-white text-xs transition-all duration-200 border border-surface-600/50"
+      >
+        <Icon name={copied ? 'Check' : 'Copy'} className="w-3.5 h-3.5" />
+        {copied ? 'Copied!' : 'Copy'}
+      </button>
+      <div className="font-sans pr-20">{rendered}</div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   TABLE OF CONTENTS
+───────────────────────────────────────────── */
+const TableOfContents = ({ text }) => {
+  const [activeId, setActiveId] = React.useState('');
+
+  // Extract headings from markdown text
+  const headings = React.useMemo(() => {
+    return text.split('\n')
+      .filter(l => l.startsWith('## ') || l.startsWith('### '))
+      .map(l => {
+        const level = l.startsWith('### ') ? 3 : 2;
+        const title = l.slice(level === 2 ? 3 : 4);
+        const id = 'h-' + title.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+        return { level, title, id };
+      });
+  }, [text]);
+
+  // Track active heading via IntersectionObserver
+  React.useEffect(() => {
+    if (headings.length === 0) return;
+    const observer = new IntersectionObserver(
+      entries => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) setActiveId(entry.target.id);
+        });
+      },
+      { rootMargin: '-10% 0px -80% 0px', threshold: 0 }
+    );
+    headings.forEach(h => {
+      const el = document.getElementById(h.id);
+      if (el) observer.observe(el);
+    });
+    return () => observer.disconnect();
+  }, [headings]);
+
+  if (headings.length < 2) return null;
+
+  const scrollTo = (id) => {
+    const el = document.getElementById(id);
+    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  return (
+    <nav className="hidden lg:block w-48 flex-shrink-0 sticky top-0 self-start pt-1">
+      <p className="text-xs font-semibold text-surface-500 uppercase tracking-wider mb-3 px-2">Contents</p>
+      <ul className="space-y-0.5">
+        {headings.map(h => (
+          <li key={h.id}>
+            <button
+              onClick={() => scrollTo(h.id)}
+              className={`w-full text-left px-2 py-1 rounded text-xs transition-all duration-150 leading-snug ${
+                h.level === 3 ? 'pl-4' : ''
+              } ${
+                activeId === h.id
+                  ? 'text-brand-400 bg-brand-500/10 font-medium'
+                  : 'text-surface-500 hover:text-surface-300 hover:bg-surface-700/30'
+              }`}
+            >
+              {h.title}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </nav>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   CONFIG PANEL
+───────────────────────────────────────────── */
+const ConfigPanel = ({ config, onChange }) => {
+  const depths = ['Quick', 'Standard', 'Deep'];
+  const formats = ['Markdown', 'Plain Text', 'Structured JSON'];
+  const sourceKeys = ['papers', 'web', 'patents', 'news'];
+  const sourceLabels = { papers: 'Academic Papers', web: 'Web Sources', patents: 'Patents', news: 'News & Blogs' };
+
+  return (
+    <div className="p-4 space-y-5">
+      <div>
+        <label className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2 block">Research Depth</label>
+        <div className="flex gap-2">
+          {depths.map(d => (
+            <button key={d}
+              onClick={() => onChange({ ...config, depth: d })}
+              className={`flex-1 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 ${
+                config.depth === d
+                  ? 'bg-brand-600 text-white'
+                  : 'bg-surface-700/60 text-surface-400 hover:text-white hover:bg-surface-600/60'
+              }`}
+            >{d}</button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2 block">Source Types</label>
+        <div className="space-y-2">
+          {sourceKeys.map(k => (
+            <label key={k} className="flex items-center gap-2 cursor-pointer group">
+              <div
+                onClick={() => onChange({ ...config, sources: { ...config.sources, [k]: !config.sources[k] } })}
+                className={`w-4 h-4 rounded flex items-center justify-center transition-all duration-200 cursor-pointer ${
+                  config.sources[k] ? 'bg-brand-500' : 'bg-surface-700 border border-surface-600'
+                }`}
+              >
+                {config.sources[k] && <Icon name="Check" className="w-3 h-3 text-white" />}
+              </div>
+              <span className="text-xs text-surface-300 group-hover:text-white transition-colors">{sourceLabels[k]}</span>
+            </label>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2 block">
+          Max Sources: <span className="text-brand-400">{config.maxSources}</span>
+        </label>
+        <input
+          type="range" min="5" max="50" step="5"
+          value={config.maxSources}
+          onChange={e => onChange({ ...config, maxSources: Number(e.target.value) })}
+          className="w-full accent-brand-500 cursor-pointer"
+        />
+        <div className="flex justify-between text-xs text-surface-500 mt-1">
+          <span>5</span><span>50</span>
+        </div>
+      </div>
+
+      <div>
+        <label className="text-xs font-semibold text-surface-400 uppercase tracking-wider mb-2 block">Output Format</label>
+        <select
+          value={config.format}
+          onChange={e => onChange({ ...config, format: e.target.value })}
+          className="w-full bg-surface-700/60 border border-surface-600/50 rounded-lg px-3 py-2 text-xs text-surface-200 focus:border-brand-500 transition-colors"
+        >
+          {formats.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   DATA
+───────────────────────────────────────────── */
+const AGENT_STEPS = [
+  { id: 'decompose',      label: 'Decomposing query into sub-questions',  sub: 'Generating sub-questions...' },
+  { id: 'plan',           label: 'Building research plan',                sub: 'Planning search strategy...' },
+  { id: 'search',         label: 'Searching academic databases & web',    sub: 'Searching for sources...' },
+  { id: 'analyze',        label: 'Analyzing and cross-referencing',       sub: 'Analyzing sources...' },
+  { id: 'build_graph',    label: 'Building knowledge graph',              sub: 'Mapping relationships...' },
+  { id: 'detect_gaps',    label: 'Detecting research gaps',               sub: 'Finding unexplored areas...' },
+  { id: 'generate_ideas', label: 'Generating research ideas',             sub: 'Ideating novel directions...' },
+  { id: 'synthesize',     label: 'Synthesizing research report',          sub: 'Writing report...' },
+];
+
+const SAMPLE_SOURCES = [
+  { id: 1, title: 'Attention Is All You Need', authors: 'Vaswani et al.', venue: 'NeurIPS', year: 2017, relevance: 98, type: 'paper' },
+  { id: 2, title: 'Language Models are Few-Shot Learners', authors: 'Brown et al.', venue: 'NeurIPS', year: 2020, relevance: 95, type: 'paper' },
+  { id: 3, title: 'Constitutional AI: Harmlessness from AI Feedback', authors: 'Bai et al.', venue: 'Anthropic', year: 2022, relevance: 91, type: 'paper' },
+  { id: 4, title: 'Scaling Laws for Neural Language Models', authors: 'Kaplan et al.', venue: 'OpenAI', year: 2020, relevance: 89, type: 'paper' },
+  { id: 5, title: 'Chain-of-Thought Prompting Elicits Reasoning in LLMs', authors: 'Wei et al.', venue: 'NeurIPS', year: 2022, relevance: 87, type: 'paper' },
+  { id: 6, title: 'State of Large Language Models 2024', authors: 'AI Research Collective', venue: 'Web', year: 2024, relevance: 82, type: 'web' },
+];
+
+const SUB_QUESTIONS = [
+  'What architectural innovations distinguish modern transformer-based LLMs?',
+  'How do scaling laws govern the relationship between model size and capability?',
+  'What alignment techniques are most effective for ensuring safe AI behavior?',
+  'What are the current limitations and failure modes of large language models?',
+  'What emergent capabilities arise at scale and what triggers their appearance?',
+];
+
+const SAMPLE_REPORT = `## Executive Summary
+
+Large Language Models (LLMs) built on transformer architectures have fundamentally transformed the landscape of artificial intelligence. This report synthesizes current research across architectural innovations, scaling dynamics, alignment methodologies, and emergent capabilities to provide a comprehensive overview of the state of the field.
+
+## Key Findings
+
+### Architectural Foundations
+
+The transformer architecture introduced by Vaswani et al. (2017) remains the dominant paradigm, with self-attention mechanisms enabling models to capture long-range dependencies in text. Modern variants incorporate improvements such as rotary positional embeddings, grouped-query attention, and mixture-of-experts layers to improve efficiency and capability.
+
+### Emergent Capabilities
+
+Research consistently demonstrates that certain capabilities emerge unpredictably at scale thresholds. Few-shot learning, chain-of-thought reasoning, and instruction following all exhibit phase-transition-like behavior, appearing suddenly as model scale crosses critical thresholds. This non-linearity complicates capability forecasting.
+
+### Alignment and Safety
+
+Constitutional AI and RLHF-based approaches have shown promise in steering model behavior toward human preferences. However, alignment remains an open problem—models can exhibit sycophancy, hallucination, and goal misgeneralization even after extensive fine-tuning. Scalable oversight and interpretability research are active frontiers.
+
+### Chain-of-Thought Reasoning
+
+Prompting models to reason step-by-step dramatically improves performance on multi-step reasoning tasks. This technique, combined with self-consistency sampling, achieves near-human performance on mathematical and logical benchmarks, suggesting that reasoning can be elicited rather than solely trained.
+
+## Research Gaps
+
+- Mechanistic interpretability of emergent capabilities remains poorly understood, limiting our ability to predict or control capability jumps
+- Long-context faithfulness degrades significantly beyond 32k tokens, with models exhibiting "lost in the middle" retrieval failures
+- Robust evaluation frameworks for open-ended generation quality and factual grounding are still lacking
+
+## Conclusion
+
+The field of large language models is advancing rapidly, with architectural refinements, scaling insights, and alignment techniques converging to produce increasingly capable systems. However, fundamental challenges in interpretability, alignment robustness, and evaluation methodology must be addressed to ensure safe and reliable deployment at scale.`;
+
+const EXAMPLE_QUERIES = [
+  'Recent advances in large language models',
+  'Quantum computing error correction methods',
+  'CRISPR gene editing therapeutic applications',
+  'Diffusion models for image generation',
+];
+
+/* ─────────────────────────────────────────────
+   SIDEBAR
+───────────────────────────────────────────── */
+const Sidebar = ({ history, onDelete, onSelect, onNew, configOpen, setConfigOpen, config, setConfig, sidebarOpen }) => {
+  const [searchTerm, setSearchTerm] = React.useState('');
+
+  const filtered = React.useMemo(() => {
+    if (!searchTerm.trim()) return history;
+    const lower = searchTerm.toLowerCase();
+    return history.filter(item => item.query.toLowerCase().includes(lower));
+  }, [history, searchTerm]);
+
+  // Highlight matching substring in query text
+  const highlight = (text, term) => {
+    if (!term.trim()) return <span>{text}</span>;
+    const idx = text.toLowerCase().indexOf(term.toLowerCase());
+    if (idx === -1) return <span>{text}</span>;
+    return (
+      <span>
+        {text.slice(0, idx)}
+        <mark className="bg-brand-500/30 text-brand-300 rounded px-0.5">{text.slice(idx, idx + term.length)}</mark>
+        {text.slice(idx + term.length)}
+      </span>
+    );
+  };
+
+  return (
+    <aside className={`flex-shrink-0 flex flex-col bg-surface-900/80 border-r border-surface-700/50 transition-all duration-300 overflow-hidden ${
+      sidebarOpen ? 'w-64' : 'w-0'
+    }`}>
+      <div className="flex items-center justify-between px-4 py-3 border-b border-surface-700/50">
+        <span className="text-xs font-semibold text-surface-400 uppercase tracking-wider">Research History</span>
+        <button
+          onClick={onNew}
+          className="w-6 h-6 rounded flex items-center justify-center text-surface-400 hover:text-brand-400 hover:bg-brand-500/10 transition-all duration-200"
+          title="New Research"
+        >
+          <Icon name="Plus" className="w-3.5 h-3.5" />
+        </button>
+      </div>
+
+      {/* Search bar — only shown when there's history */}
+      {history.length > 0 && (
+        <div className="px-3 py-2 border-b border-surface-700/40">
+          <div className="flex items-center gap-2 bg-surface-800/60 border border-surface-700/50 rounded-lg px-2.5 py-1.5 focus-within:border-brand-600/50 transition-colors">
+            <Icon name="Search" className="w-3 h-3 text-surface-500 flex-shrink-0" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={e => setSearchTerm(e.target.value)}
+              placeholder="Search history..."
+              className="flex-1 bg-transparent text-xs text-surface-200 placeholder-surface-600 outline-none"
+            />
+            {searchTerm && (
+              <button
+                onClick={() => setSearchTerm('')}
+                className="flex-shrink-0 text-surface-500 hover:text-surface-300 transition-colors"
+              >
+                <Icon name="X" className="w-3 h-3" />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      <div className="flex-1 overflow-y-auto py-2">
+        {history.length === 0 ? (
+          <div className="px-4 py-8 text-center">
+            <Icon name="Clock" className="w-8 h-8 text-surface-600 mx-auto mb-2" />
+            <p className="text-xs text-surface-500">No research history yet</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="px-4 py-8 text-center">
+            <Icon name="Search" className="w-6 h-6 text-surface-600 mx-auto mb-2" />
+            <p className="text-xs text-surface-500">No results for</p>
+            <p className="text-xs text-surface-400 font-medium mt-0.5">"{searchTerm}"</p>
+          </div>
+        ) : (
+          <>
+            {searchTerm && (
+              <p className="text-xs text-surface-600 px-4 pb-1">
+                {filtered.length} of {history.length} sessions
+              </p>
+            )}
+            {filtered.map(item => (
+              <div key={item.id}
+                className="group flex items-start gap-2 px-3 py-2.5 mx-2 rounded-lg hover:bg-surface-800/60 cursor-pointer transition-all duration-200"
+                onClick={() => onSelect(item)}
+              >
+                <Icon name="Search" className="w-3.5 h-3.5 text-surface-500 flex-shrink-0 mt-0.5" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-surface-300 leading-snug line-clamp-2">
+                    {highlight(item.query, searchTerm)}
+                  </p>
+                  <p className="text-xs text-surface-600 mt-0.5">{item.date}</p>
+                </div>
+                <button
+                  onClick={e => { e.stopPropagation(); onDelete(item.id); }}
+                  className="opacity-0 group-hover:opacity-100 w-5 h-5 flex items-center justify-center rounded text-surface-500 hover:text-red-400 hover:bg-red-500/10 transition-all duration-200 flex-shrink-0"
+                >
+                  <Icon name="Trash" className="w-3 h-3" />
+                </button>
+              </div>
+            ))}
+          </>
+        )}
+      </div>
+
+      <div className="border-t border-surface-700/50">
+        <button
+          onClick={() => setConfigOpen(!configOpen)}
+          className={`w-full flex items-center gap-2 px-4 py-3 text-xs font-medium transition-all duration-200 ${
+            configOpen ? 'text-brand-400 bg-brand-500/10' : 'text-surface-400 hover:text-white hover:bg-surface-800/60'
+          }`}
+        >
+          <Icon name="Settings" className="w-3.5 h-3.5" />
+          Configuration
+          <span className={`ml-auto transition-transform duration-200 ${configOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {configOpen && (
+          <div className="border-t border-surface-700/50 bg-surface-900/50">
+            <ConfigPanel config={config} onChange={setConfig} />
+          </div>
+        )}
+      </div>
+    </aside>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   IDLE VIEW
+───────────────────────────────────────────── */
+const IdleView = ({ query, setQuery, onSubmit }) => {
+  const textareaRef = useRef(null);
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (query.trim()) onSubmit();
+    }
+  };
+
+  return (
+    <div className="flex-1 flex flex-col items-center justify-center px-6 py-12">
+      <div className="w-full max-w-2xl space-y-8">
+        <div className="text-center space-y-3">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-brand-500/10 border border-brand-500/20 text-brand-400 text-xs font-medium mb-4">
+            <Icon name="Sparkles" className="w-3.5 h-3.5" />
+            Powered by Autonomous AI Agents
+          </div>
+          <h1 className="text-4xl font-extrabold gradient-text leading-tight">
+            Research Any Topic<br />with AI Precision
+          </h1>
+          <p className="text-surface-400 text-base max-w-lg mx-auto leading-relaxed">
+            Enter a research question and our autonomous agents will search, analyze, and synthesize a comprehensive report from academic papers and web sources.
+          </p>
+        </div>
+
+        <div className="gradient-border">
+          <div className="bg-surface-800/80 rounded-xl p-1">
+            <textarea
+              ref={textareaRef}
+              value={query}
+              onChange={e => setQuery(e.target.value)}
+              onKeyDown={handleKeyDown}
+              placeholder="e.g. What are the latest advances in large language models and their alignment techniques?"
+              rows={4}
+              className="w-full bg-transparent px-4 py-3 text-sm text-surface-100 placeholder-surface-500 resize-none font-sans leading-relaxed"
+            />
+            <div className="flex items-center justify-between px-3 pb-2">
+              <span className="text-xs text-surface-600">Press Enter to submit · Shift+Enter for new line</span>
+              <button
+                onClick={onSubmit}
+                disabled={!query.trim()}
+                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold transition-all duration-200"
+              >
+                <Icon name="Search" className="w-4 h-4" />
+                Research
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-2">
+          <p className="text-xs text-surface-500 text-center">Try an example:</p>
+          <div className="flex flex-wrap gap-2 justify-center">
+            {EXAMPLE_QUERIES.map(q => (
+              <button
+                key={q}
+                onClick={() => setQuery(q)}
+                className="px-3 py-1.5 rounded-full bg-surface-800/60 border border-surface-700/50 text-xs text-surface-300 hover:text-white hover:border-brand-600/50 hover:bg-brand-500/10 transition-all duration-200"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   RUNNING VIEW
+───────────────────────────────────────────── */
+const RunningView = ({ steps, activeStep, completedSteps, progress, sources }) => (
+  <div className="flex-1 flex gap-4 p-6 overflow-hidden">
+    <div className="flex-1 flex flex-col gap-4 min-w-0">
+      <div className="bg-surface-800/60 border border-surface-700/50 rounded-xl p-5">
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-sm font-semibold text-white">Agent Pipeline</h3>
+          <span className="text-xs font-mono text-brand-400">{Math.round(progress)}%</span>
+        </div>
+        <div className="w-full bg-surface-700/50 rounded-full h-1.5 mb-5 overflow-hidden">
+          <div
+            className="h-1.5 rounded-full progress-shimmer transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+        <div className="space-y-2">
+          {steps.map((step, i) => (
+            <AgentStepRow
+              key={step.id}
+              step={step}
+              index={i}
+              isActive={activeStep === i}
+              isDone={completedSteps.includes(i)}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+
+    <div className="w-72 flex-shrink-0 flex flex-col gap-3 overflow-y-auto">
+      <h3 className="text-sm font-semibold text-white flex items-center gap-2 flex-shrink-0">
+        <Icon name="Link" className="w-4 h-4 text-brand-400" />
+        Sources Found
+        <span className="ml-auto text-xs font-mono text-surface-400">{sources.length}</span>
+      </h3>
+      {sources.map((src, i) => (
+        <SourceCard key={src.id} source={src} index={i} />
+      ))}
+      {sources.length === 0 && (
+        <div className="text-center py-8 text-surface-500 text-xs">
+          <Icon name="Search" className="w-6 h-6 mx-auto mb-2 opacity-40" />
+          Searching for sources...
+        </div>
+      )}
+    </div>
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   GAPS VIEW
+───────────────────────────────────────────── */
+const HOW_TO_START = [
+  { icon: 'Search',   action: 'arXiv',            hint: (q) => `https://arxiv.org/search/?query=${encodeURIComponent(q)}&searchtype=all&order=-announced_date_first` },
+  { icon: 'Globe',    action: 'Google Scholar',   hint: (q) => `https://scholar.google.com/scholar?q=${encodeURIComponent(q)}&as_ylo=2020` },
+  { icon: 'Link',     action: 'GitHub Code',      hint: (q) => `https://github.com/search?q=${encodeURIComponent(q)}&type=repositories&s=stars&o=desc&l=Python` },
+  { icon: 'FileText', action: 'GitHub Topics',    hint: (q) => `https://github.com/topics/${encodeURIComponent(q.split(' ').slice(0,3).join('-').toLowerCase().replace(/[^a-z0-9-]/g,''))}` },
+];
+
+const GapCard = ({ gap, index, sources, graph }) => {
+  const [open, setOpen] = useState(false);
+
+  const sev = gap.severity_score;
+  const sevLabel = sev >= 0.7 ? 'High' : sev >= 0.4 ? 'Medium' : 'Low';
+  const sevColor = sev >= 0.7
+    ? { badge: 'text-red-400 bg-red-500/10 border-red-500/30', bar: 'bg-red-500', border: 'border-red-500/40' }
+    : sev >= 0.4
+    ? { badge: 'text-amber-400 bg-amber-500/10 border-amber-500/30', bar: 'bg-amber-500', border: 'border-amber-500/40' }
+    : { badge: 'text-surface-400 bg-surface-700/30 border-surface-600/30', bar: 'bg-surface-500', border: 'border-surface-600/40' };
+
+  // Resolve affected sources from graph nodes + sources array
+  const affectedSources = React.useMemo(() => {
+    const results = [];
+    const nodeMap = graph?.nodes || {};
+    const sourceMap = {};
+    (sources || []).forEach(s => { sourceMap[s.id] = s; });
+
+    (gap.affected_nodes || []).forEach(nodeId => {
+      const node = nodeMap[nodeId];
+      const src  = sourceMap[nodeId];
+      if (node) results.push({ id: nodeId, title: node.title, authors: node.authors, venue: node.venue, year: node.year, url: node.url, type: node.source_type, relevance: Math.round(node.relevance_score * 100) });
+      else if (src) results.push({ id: nodeId, title: src.title, authors: src.authors, venue: src.venue, year: src.year, url: src.url, type: src.type, relevance: src.relevance });
+    });
+    return results;
+  }, [gap.affected_nodes, graph, sources]);
+
+  // Build a clean keyword query from gap title + intersections + affected node keywords
+  const searchQuery = React.useMemo(() => {
+    // Strip common gap-title prefixes to get the actual topic
+    let base = gap.title
+      .replace(/^unexplored aspects of\s*/i, '')
+      .replace(/^missing bridge between\s*/i, '')
+      .replace(/^unexplored:\s*/i, '')
+      .replace(/^missing:\s*/i, '')
+      .replace(/^research gap:\s*/i, '')
+      .replace(/^['"""'']+|['"""'']+$/g, '')
+      .trim();
+
+    // Pull topic keywords from missing_intersections
+    const intersectionTerms = (gap.missing_intersections || [])
+      .map(mi => mi.intersection || Object.values(mi).filter(v => typeof v === 'string' && v.length < 80).join(' '))
+      .filter(Boolean)
+      .join(' ');
+
+    // Pull keywords from affected nodes in the graph
+    const nodeKeywords = affectedSources
+      .flatMap(src => {
+        const node = (graph?.nodes || {})[src.id];
+        return node?.keywords || [];
+      })
+      .filter(Boolean)
+      .slice(0, 5)
+      .join(' ');
+
+    // Combine: intersection terms take priority, then base, then node keywords
+    const combined = intersectionTerms
+      ? `${intersectionTerms} ${base}`
+      : nodeKeywords
+        ? `${base} ${nodeKeywords}`
+        : base;
+
+    // Keep it under 120 chars and strip special chars
+    return combined.replace(/['"''""]/g, '').replace(/\s+/g, ' ').trim().slice(0, 120);
+  }, [gap, affectedSources, graph]);
+
+  // Derive gap type from gap_id prefix
+  const gapType = gap.gap_id.startsWith('gap_structural') ? 'Structural'
+    : gap.gap_id.startsWith('gap_semantic') ? 'Semantic'
+    : gap.gap_id.startsWith('gap_intersection') ? 'Intersection'
+    : 'General';
+
+  const gapTypeColor = gapType === 'Structural' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+    : gapType === 'Semantic' ? 'bg-violet-500/10 text-violet-400 border-violet-500/20'
+    : gapType === 'Intersection' ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
+    : 'bg-surface-700/30 text-surface-400 border-surface-600/20';
+
+  return (
+    <div className={`bg-surface-800/60 border rounded-xl overflow-hidden transition-all duration-300 ${open ? sevColor.border : 'border-surface-700/50 hover:border-surface-600/70'}`}>
+      {/* ── Header (always visible, clickable) ── */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full text-left p-5 flex items-start gap-4 group"
+      >
+        {/* Index */}
+        <span className="flex-shrink-0 w-7 h-7 rounded-full bg-surface-700/60 text-surface-400 text-xs font-bold font-mono flex items-center justify-center mt-0.5">
+          {index + 1}
+        </span>
+
+        <div className="flex-1 min-w-0">
+          <div className="flex flex-wrap items-center gap-2 mb-1.5">
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full border ${gapTypeColor}`}>{gapType}</span>
+            <span className={`text-xs font-bold font-mono px-2 py-0.5 rounded-full border ${sevColor.badge}`}>{sevLabel} · {Math.round(sev * 100)}%</span>
+          </div>
+          <h4 className="text-sm font-semibold text-white leading-snug group-hover:text-brand-300 transition-colors">{gap.title}</h4>
+          <p className="text-xs text-surface-400 mt-1 leading-relaxed line-clamp-2">{gap.description}</p>
+        </div>
+
+        {/* Chevron */}
+        <span className={`flex-shrink-0 text-surface-500 transition-transform duration-300 mt-1 ${open ? 'rotate-180' : ''}`}>
+          <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9"/></svg>
+        </span>
+      </button>
+
+      {/* Severity bar */}
+      <div className="h-0.5 bg-surface-700/50 mx-5">
+        <div className={`h-full ${sevColor.bar} transition-all duration-500`} style={{ width: `${Math.round(sev * 100)}%` }} />
+      </div>
+
+      {/* ── Expanded detail ── */}
+      {open && (
+        <div className="px-5 pb-5 pt-4 space-y-5 slide-in">
+
+          {/* Full description */}
+          <div>
+            <p className="text-xs font-semibold text-surface-300 uppercase tracking-wider mb-1.5">About this gap</p>
+            <p className="text-sm text-surface-300 leading-relaxed">{gap.description}</p>
+          </div>
+
+          {/* Missing intersections */}
+          {gap.missing_intersections && gap.missing_intersections.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-surface-300 uppercase tracking-wider mb-2">Unexplored intersections</p>
+              <div className="flex flex-wrap gap-2">
+                {gap.missing_intersections.map((mi, j) => {
+                  const label = mi.intersection || Object.values(mi).filter(v => typeof v === 'string').join(' + ');
+                  const reason = mi.reason || '';
+                  return (
+                    <div key={j} className="flex flex-col gap-0.5 px-3 py-2 rounded-lg bg-violet-500/10 border border-violet-500/20">
+                      <span className="text-xs font-semibold text-violet-300">{label}</span>
+                      {reason && <span className="text-xs text-surface-400">{reason}</span>}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Affected sources */}
+          {affectedSources.length > 0 && (
+            <div>
+              <p className="text-xs font-semibold text-surface-300 uppercase tracking-wider mb-2">
+                Related sources ({affectedSources.length})
+              </p>
+              <div className="space-y-2">
+                {affectedSources.map(src => (
+                  <a
+                    key={src.id}
+                    href={src.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-start gap-3 p-3 rounded-lg bg-surface-700/40 border border-surface-600/40 hover:border-brand-600/50 hover:bg-surface-700/60 transition-all duration-200 group"
+                  >
+                    <span className={`flex-shrink-0 w-6 h-6 rounded flex items-center justify-center mt-0.5 ${src.type === 'paper' ? 'bg-brand-500/20 text-brand-400' : 'bg-violet-500/20 text-violet-400'}`}>
+                      <Icon name={src.type === 'paper' ? 'FileText' : 'Globe'} className="w-3.5 h-3.5" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-surface-200 group-hover:text-white transition-colors leading-snug">{src.title}</p>
+                      <p className="text-xs text-surface-500 mt-0.5">{src.authors} · {src.venue} {src.year}</p>
+                    </div>
+                    <span className="flex-shrink-0 text-xs font-mono text-brand-400 mt-0.5">{src.relevance}%</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* How to start research */}
+          <div>
+            <p className="text-xs font-semibold text-surface-300 uppercase tracking-wider mb-2">How to start research in this area</p>
+
+            {/* Suggested steps */}
+            <div className="space-y-2 mb-4">
+              {[
+                `Search for papers combining: "${searchQuery.slice(0, 80)}"`,
+                'Review the related sources above and trace their citation networks',
+                'Look for survey papers or systematic reviews in this intersection',
+                'Check preprint servers (arXiv, bioRxiv) for the latest unpublished work',
+                'Identify active research groups working at this intersection',
+              ].map((step, j) => (
+                <div key={j} className="flex items-start gap-2.5 text-xs text-surface-300">
+                  <span className="flex-shrink-0 w-5 h-5 rounded-full bg-brand-500/20 text-brand-400 font-bold flex items-center justify-center mt-0.5">{j + 1}</span>
+                  {step}
+                </div>
+              ))}
+            </div>
+
+            {/* Quick search links */}
+            <p className="text-xs font-semibold text-surface-400 mb-2">Quick search links</p>
+            <div className="grid grid-cols-2 gap-2">
+              {HOW_TO_START.map(db => (
+                <a
+                  key={db.action}
+                  href={db.hint(searchQuery)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-3 py-2 rounded-lg bg-surface-700/50 border border-surface-600/50 hover:border-brand-600/60 hover:bg-brand-500/10 text-surface-300 hover:text-white transition-all duration-200 text-xs font-medium"
+                >
+                  <Icon name={db.icon} className="w-3.5 h-3.5 text-brand-400" />
+                  {db.action}
+                  <svg className="w-3 h-3 ml-auto text-surface-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+                </a>
+              ))}
+            </div>
+          </div>
+
+        </div>
+      )}
+    </div>
+  );
+};
+
+const GapsView = ({ gaps, sources, graph }) => (
+  <div className="max-w-3xl mx-auto space-y-3 slide-in">
+    {gaps.length === 0 ? (
+      <div className="text-center py-12 text-surface-500 text-sm">No research gaps detected.</div>
+    ) : (
+      <>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-sm text-surface-400">
+            Detected <span className="text-white font-semibold">{gaps.length}</span> research gaps — click any to explore details and start researching.
+          </p>
+          <div className="flex items-center gap-3 text-xs text-surface-500">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-red-500 inline-block" />High</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-amber-500 inline-block" />Medium</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-surface-500 inline-block" />Low</span>
+          </div>
+        </div>
+        {gaps.map((gap, i) => (
+          <GapCard key={gap.gap_id} gap={gap} index={i} sources={sources} graph={graph} />
+        ))}
+      </>
+    )}
+  </div>
+);
+
+/* ─────────────────────────────────────────────
+   CHAT PANEL (Follow-up questions) — collapsible
+───────────────────────────────────────────── */
+const ChatPanel = ({ sessionId }) => {
+  const [open, setOpen] = React.useState(false);
+  const [messages, setMessages] = React.useState([]);
+  const [input, setInput] = React.useState('');
+  const [loading, setLoading] = React.useState(false);
+  const bottomRef = React.useRef(null);
+  const inputRef = React.useRef(null);
+
+  React.useEffect(() => {
+    if (open) bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages, open]);
+
+  // Auto-focus input when panel opens
+  React.useEffect(() => {
+    if (open) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [open]);
+
+  const sendQuestion = async () => {
+    const q = input.trim();
+    if (!q || loading) return;
+
+    setInput('');
+    setMessages(prev => [...prev, { role: 'user', content: q }]);
+    setLoading(true);
+    setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      const res = await fetch(`${API_BASE}/api/research/${sessionId}/followup`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ question: q }),
+      });
+      if (!res.ok) { const err = await res.json(); throw new Error(err.detail || `HTTP ${res.status}`); }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const payload = JSON.parse(line.slice(6));
+            if (payload.token) {
+              setMessages(prev => {
+                const u = [...prev];
+                u[u.length - 1] = { ...u[u.length - 1], content: u[u.length - 1].content + payload.token };
+                return u;
+              });
+            }
+            if (payload.error) {
+              setMessages(prev => {
+                const u = [...prev];
+                u[u.length - 1] = { ...u[u.length - 1], content: `Error: ${payload.error}`, error: true };
+                return u;
+              });
+            }
+          } catch (_) {}
+        }
+      }
+    } catch (err) {
+      setMessages(prev => {
+        const u = [...prev];
+        u[u.length - 1] = { ...u[u.length - 1], content: `Failed: ${err.message}`, error: true };
+        return u;
+      });
+    } finally {
+      setLoading(false);
+      inputRef.current?.focus();
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendQuestion(); }
+  };
+
+  const suggestions = [
+    'Summarize key findings in 3 bullets',
+    'What are the most important gaps?',
+    'Which source is most relevant?',
+    'Suggest next steps',
+  ];
+
+  return (
+    <div className="border-t border-surface-700/50 bg-surface-900/60">
+      {/* ── Collapsed bar (always visible) ── */}
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center gap-2.5 px-4 py-2 hover:bg-surface-800/40 transition-colors group"
+      >
+        <div className="w-5 h-5 rounded-full bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center flex-shrink-0">
+          <Icon name="Brain" className="w-3 h-3 text-white" />
+        </div>
+        <span className="text-xs font-medium text-surface-400 group-hover:text-surface-200 transition-colors">
+          Ask a follow-up question
+        </span>
+        {messages.length > 0 && (
+          <span className="text-xs px-1.5 py-0.5 rounded-full bg-brand-500/20 text-brand-400 font-mono">
+            {messages.filter(m => m.role === 'user').length}
+          </span>
+        )}
+        {loading && <span className="text-xs text-amber-400 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse inline-block" />thinking…</span>}
+        <svg
+          className={`w-3.5 h-3.5 text-surface-500 ml-auto transition-transform duration-200 ${open ? 'rotate-180' : ''}`}
+          viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+        >
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {/* ── Expanded panel ── */}
+      {open && (
+        <div className="border-t border-surface-700/40 slide-in">
+          {/* Messages */}
+          <div className="overflow-y-auto px-4 py-3 space-y-3" style={{ maxHeight: '200px' }}>
+            {messages.length === 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {suggestions.map(s => (
+                  <button
+                    key={s}
+                    onClick={() => { setInput(s); inputRef.current?.focus(); }}
+                    className="text-xs px-2.5 py-1 rounded-full bg-surface-800/60 border border-surface-700/50 text-surface-400 hover:text-white hover:border-brand-600/50 hover:bg-brand-500/10 transition-all duration-200"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              messages.map((msg, i) => (
+                <div key={i} className={`flex gap-2 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                  {msg.role === 'assistant' && (
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center mt-0.5">
+                      <Icon name="Brain" className="w-2.5 h-2.5 text-white" />
+                    </div>
+                  )}
+                  <div className={`max-w-[82%] rounded-xl px-3 py-1.5 text-xs leading-relaxed ${
+                    msg.role === 'user'
+                      ? 'bg-brand-600/80 text-white rounded-br-sm'
+                      : msg.error
+                        ? 'bg-red-500/10 border border-red-500/20 text-red-300 rounded-bl-sm'
+                        : 'bg-surface-800/80 border border-surface-700/40 text-surface-200 rounded-bl-sm'
+                  }`}>
+                    {msg.content || (msg.role === 'assistant' && loading && i === messages.length - 1 ? <TypingDots /> : '')}
+                  </div>
+                  {msg.role === 'user' && (
+                    <div className="flex-shrink-0 w-5 h-5 rounded-full bg-surface-700 flex items-center justify-center mt-0.5">
+                      <Icon name="Search" className="w-2.5 h-2.5 text-surface-400" />
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+            <div ref={bottomRef} />
+          </div>
+
+          {/* Input */}
+          <div className="px-4 pb-3">
+            <div className="flex items-center gap-2 bg-surface-800/60 border border-surface-700/50 rounded-lg px-3 py-1.5 focus-within:border-brand-600/60 transition-colors">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="Ask anything about this research…"
+                disabled={loading}
+                className="flex-1 bg-transparent text-xs text-surface-100 placeholder-surface-500 outline-none disabled:opacity-50"
+              />
+              <button
+                onClick={sendQuestion}
+                disabled={!input.trim() || loading}
+                className="flex-shrink-0 w-5 h-5 rounded bg-brand-600 hover:bg-brand-500 disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center transition-all duration-200"
+              >
+                <svg className="w-2.5 h-2.5 text-white" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>
+                </svg>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+const CompleteView = ({ report, sources, gaps, ideas, graph, activeTab, setActiveTab, onCopy, copied, sessionId }) => {
+  const tabs = [
+    { id: 'report',  label: 'Report',                      icon: 'FileText',  color: 'brand' },
+    { id: 'sources', label: `Sources (${sources.length})`, icon: 'Link',      color: 'brand' },
+    { id: 'gaps',    label: `Gaps (${gaps.length})`,       icon: 'Alert',     color: 'amber' },
+    { id: 'ideas',   label: `Ideas (${ideas.length})`,     icon: 'Sparkles',  color: 'emerald' },
+    { id: 'graph',   label: 'Knowledge Graph',             icon: 'Brain',     color: 'violet' },
+    { id: 'notes',   label: 'Notes',                       icon: 'FileText',  color: 'brand' },
+  ];
+
+  const activeColors = {
+    brand:   'text-brand-400 border-brand-400 bg-brand-500/5',
+    amber:   'text-amber-400 border-amber-400 bg-amber-500/5',
+    emerald: 'text-emerald-400 border-emerald-400 bg-emerald-500/5',
+    violet:  'text-violet-400 border-violet-400 bg-violet-500/5',
+  };
+
+  return (
+    <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex items-center gap-0.5 px-6 pt-4 border-b border-surface-700/50 overflow-x-auto">
+        {tabs.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium rounded-t-lg transition-all duration-200 border-b-2 -mb-px whitespace-nowrap ${
+              activeTab === tab.id
+                ? activeColors[tab.color]
+                : 'text-surface-400 border-transparent hover:text-white hover:border-surface-500'
+            }`}
+          >
+            <Icon name={tab.icon} className="w-3.5 h-3.5" />
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-6">
+        {activeTab === 'report' && (
+          <div className="max-w-5xl mx-auto slide-in flex gap-6">
+            <TableOfContents text={report} />
+            <div className="flex-1 min-w-0">
+              <ReportRenderer text={report} onCopy={onCopy} copied={copied} />
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'sources' && (
+          <div className="max-w-3xl mx-auto grid grid-cols-1 md:grid-cols-2 gap-4 slide-in">
+            {sources.map((src, i) => (
+              <SourceCard key={src.id} source={src} index={i} />
+            ))}
+          </div>
+        )}
+
+        {activeTab === 'gaps' && (
+          <GapsView gaps={gaps} sources={sources} graph={graph} />
+        )}
+
+        {activeTab === 'ideas' && (
+          <div className="max-w-3xl mx-auto space-y-4 slide-in">
+            {ideas.length === 0 ? (
+              <div className="text-center py-12 text-surface-500 text-sm">No research ideas generated.</div>
+            ) : (
+              <>
+                <p className="text-sm text-surface-400 mb-2">Generated <span className="text-white font-semibold">{ideas.length}</span> actionable research ideas ranked by impact, novelty, and feasibility.</p>
+                {ideas.map((idea, i) => (
+                  <div key={idea.idea_id} className="bg-surface-800/60 border border-surface-700/50 rounded-xl p-5 hover:border-brand-700/50 transition-all duration-200">
+                    <div className="flex items-start gap-3 mb-3">
+                      <span className="flex-shrink-0 w-7 h-7 rounded-full bg-brand-500/20 text-brand-400 text-xs font-bold font-mono flex items-center justify-center">{i + 1}</span>
+                      <div className="flex-1 min-w-0">
+                        <h4 className="text-sm font-semibold text-white leading-snug mb-1">{idea.title}</h4>
+                        <div className="flex flex-wrap gap-2 mb-2">
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                            impact {Math.round(idea.impact_score * 100)}%
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-brand-500/10 text-brand-400 border border-brand-500/20">
+                            novelty {Math.round(idea.novelty_score * 100)}%
+                          </span>
+                          <span className="text-xs px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                            feasibility {Math.round(idea.feasibility_score * 100)}%
+                          </span>
+                        </div>
+                        <p className="text-xs text-surface-400 leading-relaxed mb-2">{idea.description}</p>
+                        {idea.hypothesis && (
+                          <p className="text-xs text-violet-300 italic mb-2">"{idea.hypothesis}"</p>
+                        )}
+                        {idea.next_steps && idea.next_steps.length > 0 && (
+                          <div className="mt-2">
+                            <p className="text-xs font-semibold text-surface-300 mb-1">Next steps:</p>
+                            <ul className="space-y-0.5">
+                              {idea.next_steps.map((step, j) => (
+                                <li key={j} className="flex items-start gap-1.5 text-xs text-surface-400">
+                                  <span className="text-brand-400 mt-0.5">→</span>
+                                  {step}
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'graph' && (
+          <div className="max-w-5xl mx-auto slide-in space-y-6">
+            {!graph ? (
+              <div className="text-center py-12 text-surface-500 text-sm">No knowledge graph data available.</div>
+            ) : (
+              <>
+                {/* ── Stats row ── */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { label: 'Nodes',     value: graph.statistics?.node_count ?? 0, color: 'text-brand-400',   bg: 'bg-brand-500/10',   border: 'border-brand-500/20' },
+                    { label: 'Edges',     value: graph.statistics?.edge_count ?? 0, color: 'text-violet-400',  bg: 'bg-violet-500/10',  border: 'border-violet-500/20' },
+                    { label: 'Gaps',      value: graph.statistics?.gap_count ?? 0,  color: 'text-amber-400',   bg: 'bg-amber-500/10',   border: 'border-amber-500/20' },
+                    { label: 'Ideas',     value: graph.statistics?.idea_count ?? 0, color: 'text-emerald-400', bg: 'bg-emerald-500/10', border: 'border-emerald-500/20' },
+                  ].map(stat => (
+                    <div key={stat.label} className={`${stat.bg} border ${stat.border} rounded-xl p-4 text-center`}>
+                      <div className={`text-3xl font-bold font-mono ${stat.color}`}>{stat.value}</div>
+                      <div className="text-xs text-surface-400 mt-1 font-medium">{stat.label}</div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* ── D3 Force-directed graph ── */}
+                {graph.nodes && Object.keys(graph.nodes).length > 0 && (
+                  <D3ForceGraph graph={graph} />
+                )}
+
+                {/* ── Node list ── */}
+                {graph.nodes && Object.keys(graph.nodes).length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                      <Icon name="Brain" className="w-4 h-4 text-brand-400" />
+                      Nodes ({Object.keys(graph.nodes).length})
+                    </h3>
+                    <div className="space-y-2">
+                      {Object.values(graph.nodes).map(node => (
+                        <a
+                          key={node.node_id}
+                          href={node.url && node.url.startsWith('http') ? node.url : node.source_type === 'repo' ? `https://github.com/${node.node_id}` : `https://arxiv.org/abs/${node.node_id.split('/').pop()}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-3 p-3 bg-surface-800/40 border border-surface-700/40 rounded-lg hover:border-brand-600/50 hover:bg-surface-800/70 transition-all duration-200 group"
+                        >
+                          <span className={`flex-shrink-0 w-6 h-6 rounded flex items-center justify-center text-xs ${node.source_type === 'paper' ? 'bg-brand-500/20 text-brand-400' : 'bg-violet-500/20 text-violet-400'}`}>
+                            <Icon name={node.source_type === 'paper' ? 'FileText' : 'Globe'} className="w-3.5 h-3.5" />
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-medium text-surface-200 group-hover:text-white truncate transition-colors">{node.title}</p>
+                            <p className="text-xs text-surface-500">{node.venue} · {node.year}</p>
+                          </div>
+                          <div className="flex-shrink-0 flex items-center gap-2">
+                            <div className="text-right">
+                              <div className="text-xs font-mono text-brand-400">{Math.round((node.relevance_score || 0) * 100)}%</div>
+                              {node.keywords && node.keywords.length > 0 && (
+                                <div className="flex gap-1 mt-1 justify-end">
+                                  {node.keywords.slice(0, 3).map((kw, j) => (
+                                    <span key={j} className="text-xs px-1.5 py-0.5 rounded bg-surface-700/60 text-surface-400">{kw}</span>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                            <svg className="w-3 h-3 text-surface-600 group-hover:text-brand-400 transition-colors flex-shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                              <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>
+                              <polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/>
+                            </svg>
+                          </div>
+                        </a>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Edge list ── */}
+                {graph.edges && Object.keys(graph.edges).length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+                      <Icon name="Link" className="w-4 h-4 text-violet-400" />
+                      Relationships ({Object.keys(graph.edges).length})
+                    </h3>
+                    <div className="space-y-2">
+                      {Object.values(graph.edges).slice(0, 15).map(edge => {
+                        const relColors = { related: 'bg-brand-500/10 text-brand-400 border-brand-500/20', cites: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20', extends: 'bg-violet-500/10 text-violet-400 border-violet-500/20', contradicts: 'bg-red-500/10 text-red-400 border-red-500/20', complements: 'bg-amber-500/10 text-amber-400 border-amber-500/20', builds_upon: 'bg-cyan-500/10 text-cyan-400 border-cyan-500/20', refutes: 'bg-rose-500/10 text-rose-400 border-rose-500/20' };
+                        const relColor = relColors[edge.relationship_type] || relColors.related;
+                        const srcNode = graph.nodes[edge.source_node_id];
+                        const tgtNode = graph.nodes[edge.target_node_id];
+
+                        const nodeUrl = (node, id) => {
+                          if (node?.url && node.url.startsWith('http')) return node.url;
+                          if (node?.source_type === 'repo') return `https://github.com/${id}`;
+                          return `https://arxiv.org/abs/${id.split('/').pop()}`;
+                        };
+                        const srcUrl = nodeUrl(srcNode, edge.source_node_id);
+                        const tgtUrl = nodeUrl(tgtNode, edge.target_node_id);
+                        const confidence = Math.round((edge.confidence_score || 0) * 100);
+
+                        return (
+                          <div key={edge.edge_id} className="bg-surface-800/40 border border-surface-700/40 rounded-lg overflow-hidden hover:border-surface-600/60 transition-all duration-200">
+                            {/* Relationship header */}
+                            <div className="flex items-center gap-2 px-3 py-2 border-b border-surface-700/30">
+                              <span className={`flex-shrink-0 px-2 py-0.5 rounded-full text-xs font-semibold border ${relColor}`}>
+                                {edge.relationship_type}
+                              </span>
+                              <span className="text-xs text-surface-500 ml-auto font-mono">{confidence}% confidence</span>
+                            </div>
+                            {/* Two source links side by side */}
+                            <div className="grid grid-cols-2 divide-x divide-surface-700/40">
+                              <a href={srcUrl} target="_blank" rel="noopener noreferrer"
+                                className="flex items-start gap-2 p-3 hover:bg-surface-700/30 transition-colors group">
+                                <span className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5 ${srcNode?.source_type === 'paper' ? 'bg-brand-500/20 text-brand-400' : 'bg-violet-500/20 text-violet-400'}`}>
+                                  <Icon name={srcNode?.source_type === 'paper' ? 'FileText' : 'Globe'} className="w-3 h-3" />
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-surface-200 group-hover:text-white leading-snug line-clamp-2 transition-colors">
+                                    {srcNode?.title ?? edge.source_node_id}
+                                  </p>
+                                  <p className="text-xs text-surface-500 mt-0.5">{srcNode?.venue} · {srcNode?.year}</p>
+                                </div>
+                              </a>
+                              <a href={tgtUrl} target="_blank" rel="noopener noreferrer"
+                                className="flex items-start gap-2 p-3 hover:bg-surface-700/30 transition-colors group">
+                                <span className={`flex-shrink-0 w-5 h-5 rounded flex items-center justify-center mt-0.5 ${tgtNode?.source_type === 'paper' ? 'bg-brand-500/20 text-brand-400' : 'bg-violet-500/20 text-violet-400'}`}>
+                                  <Icon name={tgtNode?.source_type === 'paper' ? 'FileText' : 'Globe'} className="w-3 h-3" />
+                                </span>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-medium text-surface-200 group-hover:text-white leading-snug line-clamp-2 transition-colors">
+                                    {tgtNode?.title ?? edge.target_node_id}
+                                  </p>
+                                  <p className="text-xs text-surface-500 mt-0.5">{tgtNode?.venue} · {tgtNode?.year}</p>
+                                </div>
+                              </a>
+                            </div>
+                            {/* Reason if available */}
+                            {edge.reason && (
+                              <div className="px-3 py-2 border-t border-surface-700/30 bg-surface-900/30">
+                                <p className="text-xs text-surface-400 italic">{edge.reason}</p>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {Object.keys(graph.edges).length > 15 && (
+                        <p className="text-xs text-surface-500 text-center py-2">+ {Object.keys(graph.edges).length - 15} more edges</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Empty state for edges */}
+                {(!graph.edges || Object.keys(graph.edges).length === 0) && (
+                  <div className="text-center py-6 bg-surface-800/30 border border-surface-700/30 rounded-xl">
+                    <Icon name="Link" className="w-8 h-8 text-surface-600 mx-auto mb-2" />
+                    <p className="text-sm text-surface-500">No semantic edges yet</p>
+                    <p className="text-xs text-surface-600 mt-1">Edges are created when sources share similar embeddings</p>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'notes' && (
+          <NotesPanel sessionId={sessionId} />
+        )}
+      </div>
+      {/* ── Follow-up chat panel ── */}
+      {sessionId && activeTab !== 'notes' && <ChatPanel sessionId={sessionId} />}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   RESEARCH NOTES PANEL
+───────────────────────────────────────────── */
+const NotesPanel = ({ sessionId }) => {
+  const storageKey = sessionId ? `prism-notes-${sessionId}` : 'prism-notes-unsaved';
+
+  const [notes, setNotes] = React.useState(() => {
+    try { return localStorage.getItem(storageKey) || ''; } catch { return ''; }
+  });
+  const [saved, setSaved] = React.useState(true);
+  const saveTimerRef = React.useRef(null);
+
+  // Load notes when sessionId changes
+  React.useEffect(() => {
+    try {
+      const stored = localStorage.getItem(storageKey) || '';
+      setNotes(stored);
+      setSaved(true);
+    } catch {}
+  }, [storageKey]);
+
+  const handleChange = (e) => {
+    const val = e.target.value;
+    setNotes(val);
+    setSaved(false);
+    // Auto-save after 800ms of inactivity
+    clearTimeout(saveTimerRef.current);
+    saveTimerRef.current = setTimeout(() => {
+      try { localStorage.setItem(storageKey, val); setSaved(true); } catch {}
+    }, 800);
+  };
+
+  const handleClear = () => {
+    if (!window.confirm('Clear all notes for this session?')) return;
+    setNotes('');
+    try { localStorage.removeItem(storageKey); } catch {}
+    setSaved(true);
+  };
+
+  const wordCount = notes.trim() ? notes.trim().split(/\s+/).length : 0;
+
+  const templates = [
+    { label: 'Key takeaway', text: '## Key Takeaway\n\n' },
+    { label: 'Action item', text: '- [ ] Action: ' },
+    { label: 'Question', text: '**Question:** ' },
+    { label: 'Follow-up', text: '## Follow-up Research\n\n- ' },
+  ];
+
+  const insertTemplate = (text) => {
+    setNotes(prev => {
+      const newVal = prev + (prev && !prev.endsWith('\n') ? '\n\n' : '') + text;
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = setTimeout(() => {
+        try { localStorage.setItem(storageKey, newVal); setSaved(true); } catch {}
+      }, 800);
+      setSaved(false);
+      return newVal;
+    });
+  };
+
+  return (
+    <div className="max-w-3xl mx-auto slide-in h-full flex flex-col gap-4">
+      {/* Header row */}
+      <div className="flex items-center gap-3">
+        <div>
+          <h3 className="text-sm font-semibold text-white flex items-center gap-2">
+            <Icon name="FileText" className="w-4 h-4 text-brand-400" />
+            Research Notes
+          </h3>
+          <p className="text-xs text-surface-500 mt-0.5">Saved locally in your browser · {wordCount} word{wordCount !== 1 ? 's' : ''}</p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          {/* Save indicator */}
+          <span className={`text-xs flex items-center gap-1 transition-all duration-300 ${saved ? 'text-emerald-400' : 'text-amber-400'}`}>
+            {saved
+              ? <><Icon name="Check" className="w-3 h-3" /> Saved</>
+              : <><span className="w-1.5 h-1.5 rounded-full bg-amber-400 inline-block animate-pulse" /> Saving…</>
+            }
+          </span>
+          <button
+            onClick={handleClear}
+            disabled={!notes}
+            className="text-xs text-surface-500 hover:text-red-400 disabled:opacity-30 transition-colors px-2 py-1 rounded hover:bg-red-500/10"
+          >
+            Clear
+          </button>
+        </div>
+      </div>
+
+      {/* Quick insert templates */}
+      <div className="flex flex-wrap gap-2">
+        <span className="text-xs text-surface-600 self-center">Insert:</span>
+        {templates.map(t => (
+          <button
+            key={t.label}
+            onClick={() => insertTemplate(t.text)}
+            className="text-xs px-2.5 py-1 rounded-full bg-surface-800/60 border border-surface-700/50 text-surface-400 hover:text-white hover:border-brand-600/50 hover:bg-brand-500/10 transition-all duration-200"
+          >
+            + {t.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Textarea */}
+      <textarea
+        value={notes}
+        onChange={handleChange}
+        placeholder={`Jot down your thoughts about this research...\n\nTip: Use ## for headings, - for bullet points, **bold** for emphasis.\n\nYour notes are saved automatically and persist across browser sessions.`}
+        className="flex-1 w-full bg-surface-800/40 border border-surface-700/50 rounded-xl p-4 text-sm text-surface-200 placeholder-surface-600 resize-none outline-none focus:border-brand-600/60 transition-colors font-mono leading-relaxed"
+        style={{ minHeight: '400px' }}
+        spellCheck={true}
+      />
+
+      {/* Markdown preview hint */}
+      {notes && (
+        <p className="text-xs text-surface-600 text-center">
+          Notes are exported as plain text in JSON exports · use the Export button to include them
+        </p>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   D3 FORCE-DIRECTED GRAPH
+───────────────────────────────────────────── */
+const REL_COLORS = {
+  related:    '#818cf8',
+  cites:      '#34d399',
+  extends:    '#a78bfa',
+  contradicts:'#f87171',
+  complements:'#fbbf24',
+  builds_upon:'#22d3ee',
+  refutes:    '#fb7185',
+};
+
+const D3ForceGraph = ({ graph }) => {
+  const svgRef = React.useRef(null);
+  const [tooltip, setTooltip] = React.useState(null); // { x, y, node }
+  const [selectedNode, setSelectedNode] = React.useState(null);
+
+  const nodes = React.useMemo(() => Object.values(graph.nodes || {}), [graph]);
+  const edges = React.useMemo(() => Object.values(graph.edges || {}), [graph]);
+
+  React.useEffect(() => {
+    if (!svgRef.current || nodes.length === 0) return;
+
+    const W = svgRef.current.clientWidth || 700;
+    const H = 420;
+
+    // Clear previous render
+    d3.select(svgRef.current).selectAll('*').remove();
+
+    const svg = d3.select(svgRef.current)
+      .attr('width', W)
+      .attr('height', H);
+
+    // Zoom + pan
+    const g = svg.append('g');
+    svg.call(
+      d3.zoom()
+        .scaleExtent([0.3, 4])
+        .on('zoom', (event) => g.attr('transform', event.transform))
+    );
+
+    // Build simulation data (D3 mutates these objects with x/y)
+    const simNodes = nodes.map(n => ({
+      ...n,
+      id: n.node_id,
+      r: 8 + (n.relevance_score || 0.5) * 8,
+    }));
+
+    const nodeById = Object.fromEntries(simNodes.map(n => [n.id, n]));
+
+    const simLinks = edges
+      .filter(e => nodeById[e.source_node_id] && nodeById[e.target_node_id])
+      .map(e => ({
+        ...e,
+        source: e.source_node_id,
+        target: e.target_node_id,
+      }));
+
+    // Force simulation
+    const simulation = d3.forceSimulation(simNodes)
+      .force('link', d3.forceLink(simLinks).id(d => d.id).distance(100).strength(0.4))
+      .force('charge', d3.forceManyBody().strength(-220))
+      .force('center', d3.forceCenter(W / 2, H / 2))
+      .force('collision', d3.forceCollide(d => d.r + 12));
+
+    // Arrow marker for directed edges — append defs before any elements
+    const defs = svg.append('defs');
+    defs.selectAll('marker')
+      .data(Object.keys(REL_COLORS))
+      .join('marker')
+        .attr('id', d => `arrow-${d}`)
+        .attr('viewBox', '0 -4 8 8')
+        .attr('refX', 14)
+        .attr('refY', 0)
+        .attr('markerWidth', 6)
+        .attr('markerHeight', 6)
+        .attr('orient', 'auto')
+      .append('path')
+        .attr('d', 'M0,-4L8,0L0,4')
+        .attr('fill', d => REL_COLORS[d])
+        .attr('opacity', 1);
+
+    // Edges
+    const link = g.append('g').selectAll('line')
+      .data(simLinks)
+      .join('line')
+        .attr('stroke', d => REL_COLORS[d.relationship_type] || REL_COLORS.related)
+        .attr('stroke-width', 2)
+        .attr('stroke-opacity', 0.85)
+        .attr('marker-end', d => `url(#arrow-${d.relationship_type || 'related'})`);
+
+    // Node groups
+    const node = g.append('g').selectAll('g')
+      .data(simNodes)
+      .join('g')
+        .style('cursor', 'pointer')
+        .call(
+          d3.drag()
+            .on('start', (event, d) => {
+              if (!event.active) simulation.alphaTarget(0.3).restart();
+              d.fx = d.x; d.fy = d.y;
+            })
+            .on('drag', (event, d) => { d.fx = event.x; d.fy = event.y; })
+            .on('end', (event, d) => {
+              if (!event.active) simulation.alphaTarget(0);
+              d.fx = null; d.fy = null;
+            })
+        );
+
+    // Node circles
+    node.append('circle')
+      .attr('r', d => d.r)
+      .attr('fill', d => d.source_type === 'repo' ? '#5b21b6' : '#075985')
+      .attr('stroke', d => d.source_type === 'repo' ? '#a78bfa' : '#38bdf8')
+      .attr('stroke-width', 1.5)
+      .attr('fill-opacity', 0.85)
+      .on('mouseover', function(event, d) {
+        d3.select(this).attr('stroke-width', 3).attr('fill-opacity', 1);
+        const rect = svgRef.current.getBoundingClientRect();
+        setTooltip({ x: event.clientX - rect.left, y: event.clientY - rect.top, node: d });
+      })
+      .on('mousemove', function(event) {
+        const rect = svgRef.current.getBoundingClientRect();
+        setTooltip(t => t ? { ...t, x: event.clientX - rect.left, y: event.clientY - rect.top } : null);
+      })
+      .on('mouseout', function() {
+        d3.select(this).attr('stroke-width', 1.5).attr('fill-opacity', 0.85);
+        setTooltip(null);
+      })
+      .on('click', (event, d) => {
+        event.stopPropagation();
+        setSelectedNode(prev => prev?.id === d.id ? null : d);
+      });
+
+    // Node labels
+    node.append('text')
+      .text(d => d.title.length > 20 ? d.title.slice(0, 20) + '…' : d.title)
+      .attr('text-anchor', 'middle')
+      .attr('dy', d => d.r + 12)
+      .attr('font-size', '9px')
+      .attr('fill', '#94a3b8')
+      .attr('font-family', 'Inter, sans-serif')
+      .style('pointer-events', 'none');
+
+    // Tick
+    simulation.on('tick', () => {
+      link
+        .attr('x1', d => d.source.x)
+        .attr('y1', d => d.source.y)
+        .attr('x2', d => d.target.x)
+        .attr('y2', d => d.target.y);
+      node.attr('transform', d => `translate(${d.x},${d.y})`);
+    });
+
+    // Click on background deselects
+    svg.on('click', () => setSelectedNode(null));
+
+    return () => simulation.stop();
+  }, [nodes, edges]);
+
+  const nodeUrl = (node) => {
+    if (node.url && node.url.startsWith('http')) return node.url;
+    if (node.source_type === 'repo') return `https://github.com/${node.node_id}`;
+    return `https://arxiv.org/abs/${node.node_id.split('/').pop()}`;
+  };
+
+  return (
+    <div className="bg-surface-800/60 border border-surface-700/50 rounded-xl overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-surface-700/40 flex items-center gap-2">
+        <Icon name="Brain" className="w-4 h-4 text-violet-400" />
+        <span className="text-sm font-semibold text-white">Force-Directed Graph</span>
+        <span className="ml-auto text-xs text-surface-500">{nodes.length} nodes · {edges.length} edges · drag to rearrange · scroll to zoom</span>
+      </div>
+
+      {/* SVG canvas */}
+      <div className="relative" style={{ background: 'rgba(15,23,42,0.6)' }}>
+        <svg ref={svgRef} className="w-full" style={{ height: 420, display: 'block' }} />
+
+        {/* Tooltip */}
+        {tooltip && (
+          <div
+            className="absolute z-10 pointer-events-none bg-surface-900 border border-surface-700/60 rounded-lg px-3 py-2 shadow-xl max-w-xs"
+            style={{ left: Math.min(tooltip.x + 12, 500), top: Math.max(tooltip.y - 60, 8) }}
+          >
+            <p className="text-xs font-semibold text-white leading-snug">{tooltip.node.title}</p>
+            <p className="text-xs text-surface-400 mt-0.5">{tooltip.node.venue} · {tooltip.node.year}</p>
+            {tooltip.node.keywords?.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {tooltip.node.keywords.slice(0, 4).map(kw => (
+                  <span key={kw} className="text-xs px-1.5 py-0.5 rounded bg-surface-700/60 text-surface-400">{kw}</span>
+                ))}
+              </div>
+            )}
+            <p className="text-xs text-brand-400 mt-1">Click to open · {Math.round((tooltip.node.relevance_score || 0) * 100)}% relevance</p>
+          </div>
+        )}
+      </div>
+
+      {/* Selected node detail panel */}
+      {selectedNode && (
+        <div className="border-t border-surface-700/40 px-4 py-3 flex items-start gap-3 bg-surface-900/40 slide-in">
+          <span className={`flex-shrink-0 w-7 h-7 rounded-lg flex items-center justify-center ${selectedNode.source_type === 'paper' ? 'bg-brand-500/20 text-brand-400' : 'bg-violet-500/20 text-violet-400'}`}>
+            <Icon name={selectedNode.source_type === 'paper' ? 'FileText' : 'Globe'} className="w-3.5 h-3.5" />
+          </span>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-white leading-snug">{selectedNode.title}</p>
+            <p className="text-xs text-surface-400 mt-0.5">{selectedNode.authors} · {selectedNode.venue} {selectedNode.year}</p>
+            {selectedNode.keywords?.length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-1.5">
+                {selectedNode.keywords.map(kw => (
+                  <span key={kw} className="text-xs px-1.5 py-0.5 rounded bg-surface-700/60 text-surface-400">{kw}</span>
+                ))}
+              </div>
+            )}
+          </div>
+          <a
+            href={nodeUrl(selectedNode)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-medium transition-colors"
+          >
+            Open
+            <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
+          </a>
+          <button onClick={() => setSelectedNode(null)} className="flex-shrink-0 w-6 h-6 flex items-center justify-center text-surface-500 hover:text-white transition-colors">
+            <Icon name="X" className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="px-4 py-2 border-t border-surface-700/40 flex flex-wrap gap-3">
+        <span className="flex items-center gap-1.5 text-xs text-surface-400"><span className="w-3 h-3 rounded-full inline-block" style={{background:'#075985',border:'1.5px solid #38bdf8'}} />arXiv paper</span>
+        <span className="flex items-center gap-1.5 text-xs text-surface-400"><span className="w-3 h-3 rounded-full inline-block" style={{background:'#5b21b6',border:'1.5px solid #a78bfa'}} />GitHub repo</span>
+        {Object.entries(REL_COLORS).slice(0, 5).map(([rel, color]) => (
+          <span key={rel} className="flex items-center gap-1.5 text-xs text-surface-400">
+            <span className="w-4 h-0.5 inline-block rounded" style={{ backgroundColor: color }} />{rel}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   EXPORT DROPDOWN
+───────────────────────────────────────────── */
+const ExportDropdown = ({ onExport }) => {
+  const [open, setOpen] = React.useState(false);
+  const ref = React.useRef(null);
+
+  // Close on outside click
+  React.useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false); };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const options = [
+    { format: 'md',   label: 'Markdown (.md)',  icon: 'FileText', desc: 'Raw markdown — open in any editor' },
+    { format: 'pdf',  label: 'PDF (print)',      icon: 'Download', desc: 'Opens print dialog for PDF/paper' },
+    { format: 'json', label: 'JSON (.json)',     icon: 'Link',     desc: 'Full data: report, sources, gaps, ideas' },
+  ];
+
+  return (
+    <div className="relative" ref={ref}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 border ${
+          open
+            ? 'bg-surface-600/60 text-white border-surface-500/60'
+            : 'bg-surface-700/60 hover:bg-surface-600/60 text-surface-300 hover:text-white border-surface-600/50'
+        }`}
+      >
+        <Icon name="Download" className="w-3.5 h-3.5" />
+        Export
+        <svg className={`w-3 h-3 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+          <polyline points="6 9 12 15 18 9"/>
+        </svg>
+      </button>
+
+      {open && (
+        <div className="absolute right-0 top-full mt-1.5 w-56 bg-surface-800 border border-surface-700/60 rounded-xl shadow-xl z-50 overflow-hidden slide-in">
+          <div className="px-3 py-2 border-b border-surface-700/40">
+            <p className="text-xs font-semibold text-surface-400 uppercase tracking-wider">Download as</p>
+          </div>
+          {options.map(opt => (
+            <button
+              key={opt.format}
+              onClick={() => { onExport(opt.format); setOpen(false); }}
+              className="w-full flex items-start gap-3 px-3 py-2.5 hover:bg-surface-700/60 transition-colors text-left group"
+            >
+              <span className="flex-shrink-0 w-7 h-7 rounded-lg bg-surface-700/60 group-hover:bg-brand-500/20 flex items-center justify-center mt-0.5 transition-colors">
+                <Icon name={opt.icon} className="w-3.5 h-3.5 text-surface-400 group-hover:text-brand-400 transition-colors" />
+              </span>
+              <div>
+                <p className="text-xs font-semibold text-surface-200 group-hover:text-white transition-colors">{opt.label}</p>
+                <p className="text-xs text-surface-500 mt-0.5">{opt.desc}</p>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};
+
+/* ─────────────────────────────────────────────
+   MAIN APP
+───────────────────────────────────────────── */
+
+// Auto-detect API base: use relative path when served via nginx proxy (Docker),
+// fall back to localhost:8000 for direct local development.
+// Docker (nginx proxy): hostname is not localhost → use relative path
+// Local dev (python http.server): always point directly at the backend
+const API_BASE = window.location.hostname !== 'localhost'
+  ? ''                        // Docker: nginx proxies /api/* → backend:8000
+  : 'http://localhost:8000';  // Local dev: direct to backend
+
+function App() {
+  const [query, setQuery] = useState('');
+  const [phase, setPhase] = useState('idle');
+  const [activeStep, setActiveStep] = useState(-1);
+  const [completedSteps, setCompletedSteps] = useState([]);
+  const [progress, setProgress] = useState(0);
+  const [sources, setSources] = useState([]);
+  const [report, setReport] = useState('');
+  const [gaps, setGaps] = useState([]);
+  const [ideas, setIdeas] = useState([]);
+  const [graph, setGraph] = useState(null);
+  const [sessionId, setSessionId] = useState(null);
+  const [openclawStatus, setOpenclawStatus] = useState(null); // { sdk_available, sdk_connected, total_calls, total_failures, budget }
+  const [activeTab, setActiveTab] = useState('report');
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [darkMode, setDarkMode] = useState(true);
+  const [configOpen, setConfigOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [errorMsg, setErrorMsg] = useState('');
+  const [history, setHistory] = useState([]);
+  const [config, setConfig] = useState({
+    depth: 'Standard',
+    sources: { papers: true, web: true, patents: false, news: false },
+    maxSources: 20,
+    format: 'Markdown',
+  });
+
+  const typewriterRef = useRef(null);
+  const timeoutsRef = useRef([]);
+
+  // Apply dark/light class to body
+  useEffect(() => {
+    document.body.classList.toggle('light', !darkMode);
+  }, [darkMode]);
+
+  const clearAllTimeouts = () => {
+    timeoutsRef.current.forEach(clearTimeout);
+    timeoutsRef.current = [];
+  };
+
+  const startTypewriter = useCallback((fullText) => {
+    let i = 0;
+    setReport('');
+    const tick = () => {
+      i += 8;
+      setReport(fullText.slice(0, i));
+      if (i < fullText.length) {
+        typewriterRef.current = setTimeout(tick, 16);
+      }
+    };
+    typewriterRef.current = setTimeout(tick, 16);
+  }, []);
+
+  const startResearch = useCallback(async (q) => {
+    clearAllTimeouts();
+    setPhase('running');
+    setActiveStep(-1);
+    setCompletedSteps([]);
+    setProgress(0);
+    setSources([]);
+    setReport('');
+    setGaps([]);
+    setIdeas([]);
+    setGraph(null);
+    setSessionId(null);
+    setActiveTab('report');
+    setErrorMsg('');
+
+    try {
+      const res = await fetch(`${API_BASE}/api/research`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ query: q, config }),
+      });
+
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.detail || `HTTP ${res.status}`);
+      }
+
+      const { session_id, stream_url } = await res.json();
+
+      // Always construct the stream URL from the same base we used for the POST.
+      // The stream_url from the backend may point to an internal Docker address
+      // that the browser can't reach.
+      const sse_url = `${API_BASE}/api/research/${session_id}/stream`;
+
+      const es = new EventSource(sse_url);
+
+      es.addEventListener('step_start', (e) => {
+        const data = JSON.parse(e.data);
+        setActiveStep(data.step_index);
+        setProgress(Math.round((data.step_index / 8) * 100));
+      });
+
+      es.addEventListener('step_complete', (e) => {
+        const data = JSON.parse(e.data);
+        setCompletedSteps(prev => [...prev, data.step_index]);
+        setProgress(Math.round(((data.step_index + 1) / 8) * 100));
+      });
+
+      es.addEventListener('source_found', (e) => {
+        const data = JSON.parse(e.data);
+        setSources(prev => [...prev, { ...data, id: Date.now() + Math.random() }]);
+      });
+
+      es.addEventListener('pipeline_complete', (e) => {
+        const data = JSON.parse(e.data);
+        es.close();
+        setProgress(100);
+        setPhase('complete');
+        setActiveStep(-1);
+        setSessionId(session_id);
+        setReport(typeof data.report === 'string' ? data.report : JSON.stringify(data.report, null, 2));
+        if (data.sources) setSources(data.sources);
+        if (data.gaps) setGaps(data.gaps);
+        if (data.ideas) setIdeas(data.ideas);
+        if (data.knowledge_graph) setGraph(data.knowledge_graph);
+        // Update OpenClaw status from pipeline result
+        if (data.openclaw) setOpenclawStatus(data.openclaw);
+        setHistory(prev => [
+          { id: session_id, query: q, date: new Date().toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) },
+          ...prev,
+        ]);
+      });
+
+      es.addEventListener('pipeline_error', (e) => {
+        const data = JSON.parse(e.data);
+        es.close();
+        setPhase('error');
+        setErrorMsg(data.error || 'An unknown error occurred.');
+      });
+
+      es.onerror = () => {
+        es.close();
+        setPhase('error');
+        setErrorMsg('Connection to research server lost.');
+      };
+
+    } catch (err) {
+      setPhase('error');
+      setErrorMsg(err.message || 'Failed to start research.');
+    }
+  }, [config]);
+
+  const handleSubmit = () => {
+    if (!query.trim() || phase === 'running') return;
+    startResearch(query.trim());
+  };
+
+  const handleReset = () => {
+    clearAllTimeouts();
+    if (typewriterRef.current) clearTimeout(typewriterRef.current);
+    setPhase('idle');
+    setQuery('');
+    setActiveStep(-1);
+    setCompletedSteps([]);
+    setProgress(0);
+    setSources([]);
+    setReport('');
+    setGaps([]);
+    setIdeas([]);
+    setGraph(null);
+    setSessionId(null);
+    setErrorMsg('');
+  };
+
+  const handleCopy = () => {
+    navigator.clipboard.writeText(report).then(() => {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    });
+  };
+
+  const handleExport = (format) => {
+    const slug = query.slice(0, 40).replace(/[^a-z0-9]+/gi, '-').toLowerCase() || 'research';
+
+    if (format === 'md') {
+      const blob = new Blob([report], { type: 'text/markdown' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${slug}.md`; a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (format === 'json') {
+      const payload = {
+        query,
+        generated_at: new Date().toISOString(),
+        report,
+        sources: sources.map(s => ({
+          title: s.title, authors: s.authors, venue: s.venue,
+          year: s.year, url: s.url, relevance: s.relevance,
+          key_findings: s.key_findings,
+        })),
+        gaps: gaps.map(g => ({ title: g.title, description: g.description, severity: g.severity_score })),
+        ideas: ideas.map(i => ({ title: i.title, description: i.description, impact: i.impact_score, novelty: i.novelty_score })),
+        notes: sessionId ? (localStorage.getItem(`prism-notes-${sessionId}`) || '') : '',
+      };
+      const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = `${slug}.json`; a.click();
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    if (format === 'pdf') {
+      // Build a clean print-friendly HTML page and open it in a new tab for printing
+      const sourcesHtml = sources.slice(0, 20).map((s, i) =>
+        `<div class="source-item"><strong>${i+1}. ${s.title}</strong><br>
+         <span class="meta">${s.authors} · ${s.venue} ${s.year} · Relevance: ${s.relevance}%</span>
+         ${s.key_findings ? `<br><em>${s.key_findings}</em>` : ''}</div>`
+      ).join('');
+
+      const gapsHtml = gaps.map((g, i) =>
+        `<li><strong>${g.title}</strong> (severity: ${Math.round(g.severity_score * 100)}%)<br>${g.description}</li>`
+      ).join('');
+
+      const ideasHtml = ideas.map((i, idx) =>
+        `<li><strong>${i.title}</strong><br>${i.description}</li>`
+      ).join('');
+
+      // Convert markdown headings to HTML for the report
+      const reportHtml = report
+        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
+        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
+        .replace(/^\- (.+)$/gm, '<li>$1</li>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\n\n/g, '</p><p>')
+        .replace(/^(?!<[hlu])/gm, '<p>')
+        .replace(/(?<![>])$/gm, '</p>');
+
+      const printHtml = `<!DOCTYPE html><html><head>
+        <meta charset="UTF-8">
+        <title>${query} — Research Report</title>
+        <style>
+          body { font-family: Georgia, serif; max-width: 800px; margin: 2cm auto; color: #111; line-height: 1.6; }
+          h1 { font-size: 22pt; border-bottom: 2px solid #333; padding-bottom: 8px; }
+          h2 { font-size: 16pt; margin-top: 24px; border-bottom: 1px solid #ccc; padding-bottom: 4px; }
+          h3 { font-size: 13pt; margin-top: 16px; }
+          p, li { font-size: 11pt; }
+          .meta { color: #555; font-size: 9pt; }
+          .source-item { margin-bottom: 10px; padding: 8px; border-left: 3px solid #0ea5e9; background: #f8fafc; }
+          .section { margin-top: 32px; }
+          ul { padding-left: 20px; }
+          @media print { body { margin: 1cm; } }
+        </style>
+      </head><body>
+        <h1>${query}</h1>
+        <p class="meta">Generated ${new Date().toLocaleDateString('en-US', { year:'numeric', month:'long', day:'numeric' })} · ${sources.length} sources · ${gaps.length} gaps · ${ideas.length} ideas</p>
+        <div class="section">${reportHtml}</div>
+        ${sources.length ? `<div class="section"><h2>Sources</h2>${sourcesHtml}</div>` : ''}
+        ${gaps.length ? `<div class="section"><h2>Research Gaps</h2><ul>${gapsHtml}</ul></div>` : ''}
+        ${ideas.length ? `<div class="section"><h2>Research Ideas</h2><ul>${ideasHtml}</ul></div>` : ''}
+        <script>window.onload = () => { window.print(); }<\/script>
+      </body></html>`;
+
+      const win = window.open('', '_blank');
+      win.document.write(printHtml);
+      win.document.close();
+    }
+  };
+
+  const handleDeleteHistory = async (id) => {
+    try {
+      await fetch(`${API_BASE}/api/history/${id}`, { method: 'DELETE' });
+    } catch (e) {}
+    setHistory(prev => prev.filter(h => h.id !== id));
+  };
+
+  const handleSelectHistory = async (item) => {
+    setQuery(item.query);
+    // Clear all result state before loading the historical session
+    setGaps([]);
+    setIdeas([]);
+    setGraph(null);
+    setSessionId(item.id);
+    try {
+      const res = await fetch(`${API_BASE}/api/history/${item.id}`);
+      if (res.ok) {
+        const session = await res.json();
+        if (session.report) {
+          setReport(typeof session.report === 'string' ? session.report : JSON.stringify(session.report, null, 2));
+          setSources(session.sources || []);
+          if (session.gaps) setGaps(session.gaps);
+          if (session.ideas) setIdeas(session.ideas);
+          if (session.knowledge_graph) setGraph(session.knowledge_graph);
+          setPhase('complete');
+          setActiveTab('report');
+        }
+      }
+    } catch (e) {}
+  };
+
+  useEffect(() => {
+    fetch(`${API_BASE}/api/history`)
+      .then(r => r.json())
+      .then(data => {
+        if (Array.isArray(data)) {
+          setHistory(data.map(item => ({
+            id: item.session_id,
+            query: item.query,
+            date: new Date(item.completed_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }),
+          })));
+        }
+      })
+      .catch(() => {}); // Silently fail if backend not running
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      clearAllTimeouts();
+      if (typewriterRef.current) clearTimeout(typewriterRef.current);
+    };
+  }, []);
+
+  // Fetch OpenClaw status on mount
+  useEffect(() => {
+    fetch(`${API_BASE}/api/openclaw`)
+      .then(r => r.ok ? r.json() : null)
+      .then(data => { if (data) setOpenclawStatus(data); })
+      .catch(() => {});
+  }, []);
+
+  return (
+    <div className="h-screen flex flex-col bg-surface-950 overflow-hidden">
+      {/* TOP PROGRESS BAR */}
+      {phase === 'running' && (
+        <div className="fixed top-0 left-0 right-0 h-0.5 z-50">
+          <div
+            className="h-full progress-shimmer transition-all duration-500"
+            style={{ width: `${progress}%` }}
+          />
+        </div>
+      )}
+
+      {/* NAVBAR */}
+      <nav className="flex-shrink-0 flex items-center gap-3 px-4 py-3 bg-surface-900/90 border-b border-surface-700/50 backdrop-blur-sm z-40">
+        <button
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="w-8 h-8 flex items-center justify-center rounded-lg text-surface-400 hover:text-white hover:bg-surface-700/60 transition-all duration-200"
+        >
+          <Icon name="Menu" className="w-4 h-4" />
+        </button>
+
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-brand-500 to-violet-500 flex items-center justify-center">
+            <Icon name="Brain" className="w-4 h-4 text-white" />
+          </div>
+          <span className="font-bold text-white text-sm">ResearchAI</span>
+          <span className="px-1.5 py-0.5 rounded text-xs font-mono font-bold bg-brand-500/20 text-brand-400 border border-brand-500/30">v2</span>
+        </div>
+
+        {phase !== 'idle' && (
+          <div className="flex-1 mx-4 hidden md:block">
+            <p className="text-xs text-surface-400 truncate">
+              <span className="text-surface-500">Query: </span>
+              <span className="text-surface-200">{query}</span>
+            </p>
+          </div>
+        )}
+
+        <div className="ml-auto flex items-center gap-2">
+          {phase === 'complete' && (
+            <ExportDropdown onExport={handleExport} />
+          )}
+          {/* OpenClaw SDK status badge */}
+          {openclawStatus && (
+            <div
+              title={`OpenClaw SDK v2\nAvailable: ${openclawStatus.sdk_available}\nGateway: ${openclawStatus.sdk_connected ? 'connected' : 'not running'}\nCalls: ${openclawStatus.total_calls ?? 0}  Failures: ${openclawStatus.total_failures ?? 0}${openclawStatus.budget?.duration_spent_seconds != null ? `\nDuration: ${openclawStatus.budget.duration_spent_seconds}s / ${openclawStatus.budget.max_duration_seconds}s` : ''}`}
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-xs font-mono cursor-default select-none transition-all duration-200 bg-surface-800/60 border-surface-700/50"
+            >
+              {/* Dot indicator */}
+              <span className={`w-1.5 h-1.5 rounded-full flex-shrink-0 ${
+                openclawStatus.sdk_connected
+                  ? 'bg-emerald-400 shadow-[0_0_4px_#34d399]'
+                  : openclawStatus.sdk_available
+                    ? 'bg-amber-400'
+                    : 'bg-surface-500'
+              }`} />
+              <span className={
+                openclawStatus.sdk_connected
+                  ? 'text-emerald-400'
+                  : openclawStatus.sdk_available
+                    ? 'text-amber-400'
+                    : 'text-surface-500'
+              }>
+                OpenClaw
+              </span>
+              {openclawStatus.total_calls > 0 && (
+                <span className="text-surface-500">{openclawStatus.total_calls} calls</span>
+              )}
+            </div>
+          )}
+          {/* Dark / Light toggle */}
+          <button
+            onClick={() => setDarkMode(d => !d)}
+            title={darkMode ? 'Switch to light mode' : 'Switch to dark mode'}
+            className="w-8 h-8 flex items-center justify-center rounded-lg text-surface-400 hover:text-white hover:bg-surface-700/60 transition-all duration-200"
+          >
+            {darkMode ? (
+              /* Sun icon */
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="5"/>
+                <line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/>
+                <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                <line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/>
+                <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+              </svg>
+            ) : (
+              /* Moon icon */
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+              </svg>
+            )}
+          </button>
+          <button
+            onClick={() => setConfigOpen(!configOpen)}
+            className={`w-8 h-8 flex items-center justify-center rounded-lg transition-all duration-200 ${
+              configOpen ? 'text-brand-400 bg-brand-500/10' : 'text-surface-400 hover:text-white hover:bg-surface-700/60'
+            }`}
+          >
+            <Icon name="Settings" className="w-4 h-4" />
+          </button>
+          <button
+            onClick={handleReset}
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-xs font-semibold transition-all duration-200"
+          >
+            <Icon name="Plus" className="w-3.5 h-3.5" />
+            {phase === 'idle' ? 'New' : 'Reset'}
+          </button>
+        </div>
+      </nav>
+
+      {/* BODY */}
+      <div className="flex-1 flex overflow-hidden">
+        <Sidebar
+          history={history}
+          onDelete={handleDeleteHistory}
+          onSelect={handleSelectHistory}
+          onNew={handleReset}
+          configOpen={configOpen}
+          setConfigOpen={setConfigOpen}
+          config={config}
+          setConfig={setConfig}
+          sidebarOpen={sidebarOpen}
+        />
+
+        <main className="flex-1 flex flex-col overflow-hidden">
+          {phase === 'idle' && (
+            <IdleView query={query} setQuery={setQuery} onSubmit={handleSubmit} />
+          )}
+          {phase === 'running' && (
+            <RunningView
+              steps={AGENT_STEPS}
+              activeStep={activeStep}
+              completedSteps={completedSteps}
+              progress={progress}
+              sources={sources}
+            />
+          )}
+          {phase === 'complete' && (
+            <CompleteView
+              report={report}
+              sources={sources}
+              gaps={gaps}
+              ideas={ideas}
+              graph={graph}
+              activeTab={activeTab}
+              setActiveTab={setActiveTab}
+              onCopy={handleCopy}
+              copied={copied}
+              sessionId={sessionId}
+            />
+          )}
+          {phase === 'error' && (
+            <div className="flex-1 flex items-center justify-center p-6">
+              <div className="max-w-md w-full bg-red-500/10 border border-red-500/30 rounded-xl p-6 text-center">
+                <div className="w-12 h-12 rounded-full bg-red-500/20 flex items-center justify-center mx-auto mb-4">
+                  <Icon name="Alert" className="w-6 h-6 text-red-400" />
+                </div>
+                <h3 className="text-lg font-semibold text-red-300 mb-2">Research Failed</h3>
+                <p className="text-sm text-surface-400 mb-4">{errorMsg}</p>
+                <button
+                  onClick={handleReset}
+                  className="px-4 py-2 rounded-lg bg-brand-600 hover:bg-brand-500 text-white text-sm font-semibold transition-all duration-200"
+                >
+                  Try Again
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+</script>
+</body>
+</html>

@@ -1,0 +1,141 @@
+# OpenClaw Configuration - Edge + Cloud Variant
+# Defines agent registry, protocols, and distributed execution model
+
+openclaw:
+  version: "1.0.0"
+  framework: "openclawai"
+  mode: "edge_cloud"  # Edge (local) + Cloud (remote) agents
+  
+agents:
+  # Core Research Agents
+  decomposer:
+    type: "edge"
+    model: "gpt-4-turbo"
+    timeout: 30
+    description: "Decomposes research queries into sub-questions"
+    
+  planner:
+    type: "edge"
+    model: "gpt-4-turbo"
+    timeout: 30
+    description: "Builds research execution plan"
+    
+  search:
+    type: "edge"
+    model: "gpt-4-turbo"
+    timeout: 60
+    description: "Searches arXiv and GitHub APIs"
+    integrations:
+      - "arxiv_api"
+      - "github_api"
+    
+  analyzer:
+    type: "cloud"
+    model: "claude-3-sonnet"
+    timeout: 60
+    description: "Cross-references and analyzes findings"
+    
+  gap_detector:
+    type: "cloud"
+    model: "gpt-4-turbo"
+    timeout: 45
+    description: "Detects research gaps and missing links"
+    
+  idea_generator:
+    type: "cloud"
+    model: "gpt-4-turbo"
+    timeout: 45
+    description: "Generates actionable research ideas"
+    
+  synthesizer:
+    type: "edge"
+    model: "gpt-4-turbo"
+    timeout: 45
+    description: "Synthesizes final research report"
+
+# Communication Protocols
+protocols:
+  research_request:
+    format: "json"
+    schema: "ResearchRequest"
+    validation: true
+    
+  agent_message:
+    format: "json"
+    schema: "AgentMessage"
+    compression: "gzip"
+    
+  sse_stream:
+    format: "event_stream"
+    heartbeat: 30  # seconds
+
+# Knowledge Graph Configuration
+knowledge_graph:
+  backend: "json"  # Lightweight: JSON-based
+  alternative_backends:
+    - "neo4j"      # Production: Full graph database
+    - "memgraph"   # Production: Neo4j-compatible
+  
+  storage_path: "./data/knowledge_graph.json"
+  max_nodes: 10000
+  max_relationships: 50000
+  
+  relationship_types:
+    - "cites"
+    - "extends"
+    - "contradicts"
+    - "complements"
+    - "builds_upon"
+    - "refutes"
+
+# Embeddings Configuration
+embeddings:
+  provider: "openai"  # text-embedding-3-small (cheap)
+  alternatives:
+    - "huggingface"   # Open-source: sentence-transformers
+    - "cohere"        # Production-grade
+  
+  model: "text-embedding-3-small"
+  dimension: 1536
+  batch_size: 100
+  cache_enabled: true
+  cache_path: "./data/embeddings_cache.json"
+
+# LLM Providers
+llm:
+  primary:
+    provider: "openai"
+    model_name: "gpt-4-turbo"
+    temperature: 0.7
+    max_tokens: 4096
+    
+  secondary:
+    provider: "anthropic"
+    model_name: "claude-3-sonnet"
+    temperature: 0.7
+    max_tokens: 4096
+
+# Edge Computing (Local Execution)
+edge:
+  enabled: true
+  cache_embeddings: true
+  cache_graphs: true
+  fallback_to_cloud: true
+  
+# Cloud Computing (Remote Execution)
+cloud:
+  enabled: true
+  provider: "aws"  # or gcp, azure
+  region: "us-east-1"
+  auto_scale: true
+
+# API Integration Registry
+integrations:
+  arxiv:
+    endpoint: "https://arxiv.org/api/query"
+    rate_limit: 3000  # req/5min
+    
+  github:
+    endpoint: "https://api.github.com/search/repositories"
+    rate_limit: 30    # req/min (authenticated)
+    auth_required: true
