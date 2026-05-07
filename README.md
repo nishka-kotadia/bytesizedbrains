@@ -2,6 +2,12 @@
 
 > Turn any research question into a structured report, knowledge graph, gap analysis, and actionable ideas — in minutes.
 
+## 🎥 Demo
+
+[![Prism Demo](https://img.youtube.com/vi/rVe3hUxbCJ8/0.jpg)](https://youtu.be/rVe3hUxbCJ8)
+
+▶️ **[Watch the full demo on YouTube](https://youtu.be/rVe3hUxbCJ8)**
+
 ---
 
 ## 🚩 Problem
@@ -267,3 +273,12 @@ Prism/
 ## 📝 License
 
 MIT
+
+
+---
+
+## 🤖 AI Usage Disclosure
+
+This project was built with AI assistance. See the full breakdown in [AI_DISCLOSURE.md](./AI_DISCLOSURE.md).
+
+**Team:** Byte Sized Brains — MS Ramaiah Institute of Technology
